@@ -14,7 +14,8 @@ import { Field, NumberInput } from '../ui/Field';
 import { makeId } from '../../solver/utils';
 
 export function PointLoadInput() {
-  const loads = useBeamStore((s) => s.model.loads.filter((l) => l.kind === 'point'));
+  const allLoads = useBeamStore((s) => s.model.loads);
+  const loads = allLoads.filter((l) => l.kind === 'point');
   const sys = useBeamStore((s) => s.unitSystem);
   const lbl = labels(sys);
   const addLoad = useBeamStore((s) => s.addLoad);
@@ -69,7 +70,8 @@ export function PointLoadInput() {
 }
 
 export function DistLoadInput() {
-  const loads = useBeamStore((s) => s.model.loads.filter((l) => l.kind === 'distributed'));
+  const allLoads = useBeamStore((s) => s.model.loads);
+  const loads = allLoads.filter((l) => l.kind === 'distributed');
   const sys = useBeamStore((s) => s.unitSystem);
   const lbl = labels(sys);
   const addLoad = useBeamStore((s) => s.addLoad);
@@ -137,7 +139,8 @@ export function DistLoadInput() {
 }
 
 export function MomentInput() {
-  const loads = useBeamStore((s) => s.model.loads.filter((l) => l.kind === 'moment'));
+  const allLoads = useBeamStore((s) => s.model.loads);
+  const loads = allLoads.filter((l) => l.kind === 'moment');
   const sys = useBeamStore((s) => s.unitSystem);
   const lbl = labels(sys);
   const addLoad = useBeamStore((s) => s.addLoad);

@@ -12,7 +12,21 @@ import {
 } from '../../data/sectionLibrary';
 import { MATERIALS } from '../../data/materialLibrary';
 import { Field, NumberInput, Select } from '../ui/Field';
-import { fromSI_I, labels, toSI_I } from '../../utils/units';
+import {
+  fromSI_E,
+  fromSI_I,
+  fromSI_length,
+  fromSI_stress,
+  labels,
+  toSI_I,
+  toSI_length,
+} from '../../utils/units';
+
+const M2_PER_FT2 = 0.3048 * 0.3048;
+const fromSI_area = (v_m2: number, sys: 'SI' | 'Imperial') =>
+  sys === 'SI' ? v_m2 : v_m2 / M2_PER_FT2;
+const toSI_area = (v: number, sys: 'SI' | 'Imperial') =>
+  sys === 'SI' ? v : v * M2_PER_FT2;
 import { ConcreteInput } from './ConcreteInput';
 import { ConcreteDesignInput } from './ConcreteDesignInput';
 
@@ -44,9 +58,17 @@ export function SectionInput() {
       </Field>
 
       <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
-        <div>E: <span className="num text-slate-200">{material.E.toLocaleString()}</span> {lbl.E}</div>
         <div>
-          {material.fy ? (<>fy: <span className="num text-slate-200">{material.fy}</span> {lbl.stress}</>) : null}
+          E: <span className="num text-slate-200">
+            {fromSI_E(material.E, sys).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span> {lbl.E}
+        </div>
+        <div>
+          {material.fy ? (
+            <>fy: <span className="num text-slate-200">
+              {fromSI_stress(material.fy, sys).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+            </span> {lbl.stress}</>
+          ) : null}
         </div>
       </div>
 
@@ -93,20 +115,20 @@ export function SectionInput() {
           </Field>
           <Field label="Area A" unit={`${lbl.length}²`}>
             <NumberInput
-              value={section.A ?? 0}
-              onChange={(v) => setSection({ ...section, A: v, name: 'custom' })}
+              value={fromSI_area(section.A ?? 0, sys)}
+              onChange={(v) => setSection({ ...section, A: toSI_area(v, sys), name: 'custom' })}
             />
           </Field>
           <Field label="y top" unit={lbl.length}>
             <NumberInput
-              value={section.yTop ?? 0}
-              onChange={(v) => setSection({ ...section, yTop: v, name: 'custom' })}
+              value={fromSI_length(section.yTop ?? 0, sys)}
+              onChange={(v) => setSection({ ...section, yTop: toSI_length(v, sys), name: 'custom' })}
             />
           </Field>
           <Field label="y bot" unit={lbl.length}>
             <NumberInput
-              value={section.yBot ?? 0}
-              onChange={(v) => setSection({ ...section, yBot: v, name: 'custom' })}
+              value={fromSI_length(section.yBot ?? 0, sys)}
+              onChange={(v) => setSection({ ...section, yBot: toSI_length(v, sys), name: 'custom' })}
             />
           </Field>
         </div>
@@ -164,7 +186,7 @@ export function SectionInput() {
         <div>Current: {section.name ?? '—'}</div>
         <div></div>
         <div>I = {fromSI_I(section.I, sys).toExponential(3)} {lbl.I}</div>
-        <div>A = {(section.A ?? 0).toExponential(3)} {lbl.length}²</div>
+        <div>A = {fromSI_area(section.A ?? 0, sys).toExponential(3)} {lbl.length}²</div>
       </div>
 
       <ConcreteDesignInput />
