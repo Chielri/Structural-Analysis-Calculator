@@ -7,6 +7,8 @@ export interface BeamModel {
   section: SectionProps;
   material: MaterialProps;
   selfWeight?: boolean;
+  concrete?: ConcreteDeflectionInput;
+  concreteDesign?: ConcreteDesignInput;
 }
 
 // === SUPPORTS ===
@@ -75,6 +77,61 @@ export interface MaterialProps {
   E: number;                   // Young's modulus (MPa)
   fy?: number;                 // yield strength (MPa)
   density?: number;            // kg/m³
+  // --- Concrete-specific (EC2 SS EN 1992-1-1 Cl. 7.4.3) ---
+  isConcrete?: boolean;        // tags this material as RC for EC2 deflection
+  fck?: number;                // characteristic cylinder compressive strength (MPa)
+}
+
+// === EC2 CONCRETE DEFLECTION INPUTS ===
+export interface ConcreteDeflectionInput {
+  // Reinforcement
+  As: number;                  // tension steel area (mm²)
+  As_prime: number;            // compression steel area (mm², 0 if none)
+  d: number;                   // effective depth to tension steel centroid (mm)
+  d_prime: number;             // effective depth to compression steel centroid (mm, 0 if none)
+  Es: number;                  // reinforcement modulus (MPa), typically 200_000
+
+  // Long-term (creep + shrinkage) parameters
+  phi: number;                 // final creep coefficient φ(∞,t₀)
+  eps_cs: number;              // total free shrinkage strain (positive = shortening)
+  beta: number;                // duration factor: 1.0 short-term, 0.5 sustained
+  psi2: number;                // quasi-permanent combination factor (informational; used to scale L/250 moment)
+
+  // Optional: moment ratio at construction time, relative to quasi-permanent
+  // (M_inst/M_qp). Used for the L/500 post-construction check.
+  instMomentRatio?: number;    // defaults to 1.0
+}
+
+// === EC2 FLEXURAL DESIGN INPUTS (Cl. 6.1) ===
+export interface ConcreteDesignInput {
+  /** Direct ULS moment in N·mm. If 0/undefined, peak |M| from BMD × ulsFactor is used. */
+  M_Ed?: number;
+  /** Multiplier on peak SLS moment to estimate M_Ed (used only when M_Ed not supplied). */
+  ulsFactor: number;
+  fyk: number;        // characteristic steel yield (MPa)
+  gamma_c: number;    // concrete partial factor (typ. 1.5)
+  gamma_s: number;    // steel partial factor (typ. 1.15)
+  alpha_cc: number;   // long-term effects coefficient (0.85 or 1.0)
+  delta: number;      // moment redistribution factor (0.7–1.0)
+}
+
+export interface ConcreteDesignResult {
+  M_Ed: number;
+  fcd: number;
+  fyd: number;
+  K: number;
+  K_lim: number;
+  z: number;          // lever arm (mm)
+  x_over_d_lim: number;
+  As_req: number;     // mm² tension steel required
+  As_prime_req: number; // mm² compression steel required (0 if singly reinforced)
+  As_min: number;
+  As_max: number;
+  doublyReinforced: boolean;
+  compSteelYielding: boolean;
+  feasible: boolean;
+  utilization: number; // As_req / As_provided
+  warnings: string[];
 }
 
 // === RESULTS ===
@@ -92,6 +149,60 @@ export interface AnalysisResults {
   maxShearStress?: number;     // MPa
   utilization?: number;        // σ_max / σ_y
   determinacy: DeterminacyInfo;
+  warnings: string[];
+  ec2?: EC2DeflectionResult;
+  ec2Design?: ConcreteDesignResult;
+}
+
+// === EC2 RESULTS ===
+export interface EC2DeflectionResult {
+  // Material derived
+  fcm: number;                 // MPa
+  fctm: number;                // MPa
+  Ecm: number;                 // MPa
+  Ec_eff: number;              // MPa
+  alpha_e: number;             // —
+
+  // Section
+  x_I: number;                 // mm
+  I_I: number;                 // mm⁴
+  x_II: number;                // mm
+  I_II: number;                // mm⁴
+
+  // Cracking
+  Mcr: number;                 // N·mm
+  M_qp: number;                // N·mm (peak sagging moment used)
+  zeta: number;                // —
+  cracked: boolean;
+
+  // Curvatures (1/mm)
+  kappa_I: number;
+  kappa_II: number;
+  kappa_m: number;
+  kappa_cs_I: number;
+  kappa_cs_II: number;
+  kappa_cs_m: number;
+
+  // Deflections at the critical section (mm)
+  delta_flex: number;
+  delta_shrink: number;
+  delta_total: number;
+
+  // Limits (mm) and pass/fail
+  L_eff: number;               // mm
+  limit_L250: number;          // mm
+  pass_L250: boolean;
+
+  // L/500 — post-construction
+  delta_inst: number;
+  delta_post: number;
+  limit_L500: number;
+  pass_L500: boolean;
+
+  // Coefficient used to convert curvature to mid-span deflection (depends on support condition)
+  k_flex: number;
+  k_shrink: number;
+
   warnings: string[];
 }
 
