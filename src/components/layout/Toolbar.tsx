@@ -9,7 +9,6 @@ export function Toolbar() {
   const setTheme = useBeamStore((s) => s.setTheme);
   const undo = useBeamStore((s) => s.undo);
   const redo = useBeamStore((s) => s.redo);
-  const runSolve = useBeamStore((s) => s.runSolve);
   const errors = useBeamStore((s) => s.errors);
   const results = useBeamStore((s) => s.results);
   const model = useBeamStore((s) => s.model);
@@ -104,14 +103,6 @@ export function Toolbar() {
         <button className="btn btn-ghost" onClick={handleCSV} title="Export CSV">CSV</button>
         <button className="btn btn-ghost" onClick={handlePDF} title="Export PDF">PDF</button>
       </div>
-
-      <button
-        className="btn btn-primary px-4 py-1.5 ml-2"
-        onClick={runSolve}
-        title="Solve (Ctrl+Enter)"
-      >
-        ▶ Solve
-      </button>
     </header>
   );
 }
