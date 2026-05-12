@@ -29,6 +29,7 @@ const toSI_area = (v: number, sys: 'SI' | 'Imperial') =>
   sys === 'SI' ? v : v * M2_PER_FT2;
 import { ConcreteInput } from './ConcreteInput';
 import { ConcreteDesignInput } from './ConcreteDesignInput';
+import { SteelDesignInput } from './SteelDesignInput';
 
 type Tab = 'library' | 'custom' | 'rectangle' | 'circle' | 'pipe';
 
@@ -191,6 +192,7 @@ export function SectionInput() {
 
       <ConcreteDesignInput />
       <ConcreteInput />
+      <SteelDesignInput />
     </div>
   );
 }

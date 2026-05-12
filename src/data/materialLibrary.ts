@@ -5,10 +5,10 @@ import type { MaterialProps } from '../solver/types';
  * E in MPa, fy in MPa, density in kg/m³.
  */
 export const MATERIALS: MaterialProps[] = [
-  { name: 'Structural Steel (A36)', E: 200_000, fy: 250, density: 7850 },
-  { name: 'Structural Steel (A992)', E: 200_000, fy: 345, density: 7850 },
-  { name: 'Structural Steel S275 (EN 10025-2)', E: 210_000, fy: 275, density: 7850 },
-  { name: 'Structural Steel S355 (EN 10025-2)', E: 210_000, fy: 355, density: 7850 },
+  { name: 'Structural Steel (A36)', E: 200_000, G: 77_000, fy: 250, fu: 400, density: 7850, isSteel: true },
+  { name: 'Structural Steel (A992)', E: 200_000, G: 77_000, fy: 345, fu: 450, density: 7850, isSteel: true },
+  { name: 'Structural Steel S275 (EN 10025-2)', E: 210_000, G: 81_000, fy: 275, fu: 410, density: 7850, isSteel: true },
+  { name: 'Structural Steel S355 (EN 10025-2)', E: 210_000, G: 81_000, fy: 355, fu: 470, density: 7850, isSteel: true },
   { name: 'Aluminium 6061-T6', E: 68_900, fy: 276, density: 2700 },
   { name: 'Aluminium 7075-T6', E: 71_700, fy: 503, density: 2810 },
   { name: 'Concrete C25/30 (fck 25 MPa)', E: 31_000, fy: 25, density: 2400, isConcrete: true, fck: 25 },
