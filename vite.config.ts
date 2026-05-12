@@ -1,9 +1,20 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { viteSingleFile } from 'vite-plugin-singlefile'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), viteSingleFile()],
+  build: {
+    target: 'es2020',
+    cssCodeSplit: false,
+    assetsInlineLimit: 100_000_000,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
