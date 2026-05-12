@@ -1,13 +1,21 @@
 import { create } from 'zustand';
-import type { AnalysisResults, BeamModel, Load, Support, Hinge } from '../solver/types';
+import type {
+  AnalysisResults,
+  BeamModel,
+  ConcreteDeflectionInput,
+  Load,
+  Support,
+  Hinge,
+} from '../solver/types';
 import { solve, validate } from '../solver';
 import { makeId } from '../solver/utils';
 import { DEFAULT_MATERIAL } from '../data/materialLibrary';
 import { DEFAULT_SECTION } from '../data/sectionLibrary';
+import { DEFAULT_CONCRETE_INPUT } from '../solver/ec2Deflection';
 import type { UnitSystem } from '../utils/units';
 
 export type Theme = 'dark' | 'light';
-export type ResultTab = 'reactions' | 'sfd' | 'bmd' | 'deflection' | 'stress';
+export type ResultTab = 'reactions' | 'sfd' | 'bmd' | 'deflection' | 'stress' | 'ec2';
 
 export interface BeamState {
   model: BeamModel;
@@ -38,6 +46,7 @@ export interface BeamState {
 
   setSection(section: BeamModel['section']): void;
   setMaterial(material: BeamModel['material']): void;
+  setConcreteInput(patch: Partial<ConcreteDeflectionInput>): void;
   toggleSelfWeight(): void;
 
   runSolve(): void;
@@ -270,6 +279,17 @@ export const useBeamStore = create<BeamState>((set, get) => ({
   setMaterial(material) {
     const m = deepClone(get().model);
     m.material = material;
+    if (material.isConcrete) {
+      if (!m.concrete) m.concrete = { ...DEFAULT_CONCRETE_INPUT };
+    } else {
+      delete m.concrete;
+    }
+    get().setModel(m);
+  },
+  setConcreteInput(patch) {
+    const m = deepClone(get().model);
+    const base = m.concrete ?? { ...DEFAULT_CONCRETE_INPUT };
+    m.concrete = { ...base, ...patch };
     get().setModel(m);
   },
   toggleSelfWeight() {

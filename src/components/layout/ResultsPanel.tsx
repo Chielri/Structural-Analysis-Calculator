@@ -2,6 +2,7 @@ import { useBeamStore, type ResultTab } from '../../store/beamStore';
 import { DiagramChart } from '../results/DiagramChart';
 import { ReactionTable } from '../results/ReactionTable';
 import { StressResults } from '../results/StressResults';
+import { EC2Results } from '../results/EC2Results';
 import { SummaryCard } from '../results/SummaryCard';
 import {
   fromSI_deflection_mm,
@@ -17,20 +18,23 @@ const TABS: { value: ResultTab; label: string }[] = [
   { value: 'bmd', label: 'BMD' },
   { value: 'deflection', label: 'Deflection' },
   { value: 'stress', label: 'Stress' },
+  { value: 'ec2', label: 'EC2 RC' },
 ];
 
 export function ResultsPanel() {
   const tab = useBeamStore((s) => s.resultTab);
   const setTab = useBeamStore((s) => s.setResultTab);
   const results = useBeamStore((s) => s.results);
+  const isConcrete = useBeamStore((s) => s.model.material.isConcrete === true);
   const sys = useBeamStore((s) => s.unitSystem);
   const lbl = labels(sys);
+  const visibleTabs = TABS.filter((t) => t.value !== 'ec2' || isConcrete);
 
   return (
     <div className="panel p-3 h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1 border-b border-slate-700 -mb-px">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
@@ -91,6 +95,8 @@ export function ResultsPanel() {
         )}
 
         {results && tab === 'stress' && <StressResults />}
+
+        {results && tab === 'ec2' && isConcrete && <EC2Results />}
       </div>
     </div>
   );
