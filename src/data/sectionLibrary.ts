@@ -1,4 +1,4 @@
-import type { SectionProps } from '../solver/types';
+import type { SectionProps, SteelISection } from '../solver/types';
 
 /**
  * Section library — common structural shapes.
@@ -12,8 +12,49 @@ import type { SectionProps } from '../solver/types';
  */
 
 export interface NamedSection extends SectionProps {
-  category: 'W' | 'C' | 'Rect' | 'Circle' | 'Pipe' | 'Custom';
+  category: 'W' | 'UB' | 'C' | 'Rect' | 'Circle' | 'Pipe' | 'Custom';
   description?: string;
+}
+
+/**
+ * EN Universal Beams (UB) — full property set so EC3 design (classification,
+ * Mc,Rd, Vpl,Rd, LTB) can run end-to-end. Properties from the Tata Steel
+ * "Blue Book" / BS 4-1 (rolled, S275/S355 ready).
+ *
+ * Units in `iSection` are mm-based (matches EN 1993-1-1).
+ */
+function UB(
+  name: string,
+  h: number, b: number, tw: number, tf: number, r: number,
+  A_mm2: number,
+  Iy_cm4: number, Iz_cm4: number,
+  Wpl_cm3: number, Wel_cm3: number,
+  It_cm4: number, Iw_cm6: number,
+): NamedSection {
+  const iSection: SteelISection = {
+    h, b, tw, tf, r,
+    A: A_mm2,
+    Iy: Iy_cm4 * 1e4,
+    Iz: Iz_cm4 * 1e4,
+    Wpl_y: Wpl_cm3 * 1e3,
+    Wel_y: Wel_cm3 * 1e3,
+    It: It_cm4 * 1e4,
+    Iw: Iw_cm6 * 1e6,   // 1 cm⁶ = 1e6 mm⁶
+    welded: false,
+  };
+  return {
+    category: 'UB',
+    name,
+    shape: 'I',
+    A: A_mm2 / 1e6,                        // m²
+    I: (Iy_cm4 * 1e4) / 1e12,              // mm⁴ → m⁴
+    yTop: h / 2 / 1000,
+    yBot: h / 2 / 1000,
+    d: h / 1000,
+    b: tw / 1000,                          // web width for shear
+    iSection,
+    description: `Universal Beam ${name}`,
+  };
 }
 
 // W shapes: I and A converted from 10^6 mm^4 and mm² to m⁴ and m².
@@ -49,6 +90,26 @@ function C(name: string, A_mm2: number, d_mm: number, Ix_e6_mm4: number, tw_mm: 
     description: `Channel ${name}`,
   };
 }
+
+/**
+ * Common UK/EN Universal Beams. Properties: h, b, tw, tf, r [mm],
+ * A [mm²], Iy, Iz [cm⁴], Wpl,y, Wel,y [cm³], It [cm⁴], Iw [10³ cm⁶ → cm⁶].
+ * Source: Tata Blue Book (rolled S275/S355).
+ */
+export const UB_SECTIONS: NamedSection[] = [
+  UB('UB 457x191x82', 460.0, 191.3, 9.9, 16.0, 10.2,
+     10500, 37100, 1870, 1830, 1610, 69.2, 922000),
+  UB('UB 533x210x92', 533.1, 209.3, 10.1, 15.6, 12.7,
+     11700, 55200, 2390, 2360, 2070, 75.7, 1600000),
+  UB('UB 406x178x60', 406.4, 177.9, 7.9, 12.8, 10.2,
+     7600, 21500, 1200, 1200, 1060, 33.3, 466000),
+  UB('UB 305x165x40', 303.4, 165.0, 6.0, 10.2, 8.9,
+     5130, 8500, 764, 623, 559, 14.7, 184000),
+  UB('UB 254x146x31', 251.4, 146.1, 6.0, 8.6, 7.6,
+     3970, 4410, 448, 393, 351, 8.55, 65500),
+  UB('UB 203x133x25', 203.2, 133.2, 5.7, 7.8, 7.6,
+     3200, 2340, 308, 258, 230, 5.96, 22400),
+];
 
 export const WIDE_FLANGE: NamedSection[] = [
   W('W310×129', 16500, 318, 308, 308.0, 13.10),
@@ -156,6 +217,7 @@ export const STANDARD_CIRCLES: NamedSection[] = [
 ];
 
 export const ALL_SECTIONS: NamedSection[] = [
+  ...UB_SECTIONS,
   ...WIDE_FLANGE,
   ...CHANNELS,
   ...STANDARD_RECTANGLES,

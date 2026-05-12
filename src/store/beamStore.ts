@@ -7,6 +7,7 @@ import type {
   Load,
   Support,
   Hinge,
+  SteelDesignInput,
 } from '../solver/types';
 import { solve, validate } from '../solver';
 import { makeId } from '../solver/utils';
@@ -14,10 +15,18 @@ import { DEFAULT_MATERIAL } from '../data/materialLibrary';
 import { DEFAULT_SECTION } from '../data/sectionLibrary';
 import { DEFAULT_CONCRETE_INPUT } from '../solver/ec2Deflection';
 import { DEFAULT_CONCRETE_DESIGN } from '../solver/ec2Design';
+import { DEFAULT_STEEL_DESIGN } from '../solver/ec3Design';
 import type { UnitSystem } from '../utils/units';
 
 export type Theme = 'dark' | 'light';
-export type ResultTab = 'reactions' | 'sfd' | 'bmd' | 'deflection' | 'stress' | 'ec2';
+export type ResultTab =
+  | 'reactions'
+  | 'sfd'
+  | 'bmd'
+  | 'deflection'
+  | 'stress'
+  | 'ec2'
+  | 'ec3';
 
 export interface BeamState {
   model: BeamModel;
@@ -50,6 +59,7 @@ export interface BeamState {
   setMaterial(material: BeamModel['material']): void;
   setConcreteInput(patch: Partial<ConcreteDeflectionInput>): void;
   setConcreteDesign(patch: Partial<ConcreteDesignInput>): void;
+  setSteelDesign(patch: Partial<SteelDesignInput>): void;
   applyDesignedRebar(): void;
   toggleSelfWeight(): void;
 
@@ -278,6 +288,13 @@ export const useBeamStore = create<BeamState>((set, get) => ({
   setSection(section) {
     const m = deepClone(get().model);
     m.section = section;
+    // EC3 needs material.fy and section.iSection. Toggle steelDesign accordingly.
+    const isSteel = !m.material.isConcrete && (m.material.fy ?? 0) > 0;
+    if (isSteel && section.iSection) {
+      if (!m.steelDesign) m.steelDesign = { ...DEFAULT_STEEL_DESIGN };
+    } else {
+      delete m.steelDesign;
+    }
     get().setModel(m);
   },
   setMaterial(material) {
@@ -286,9 +303,15 @@ export const useBeamStore = create<BeamState>((set, get) => ({
     if (material.isConcrete) {
       if (!m.concrete) m.concrete = { ...DEFAULT_CONCRETE_INPUT };
       if (!m.concreteDesign) m.concreteDesign = { ...DEFAULT_CONCRETE_DESIGN };
+      delete m.steelDesign;
     } else {
       delete m.concrete;
       delete m.concreteDesign;
+      if (material.fy && material.fy > 0 && m.section.iSection) {
+        if (!m.steelDesign) m.steelDesign = { ...DEFAULT_STEEL_DESIGN };
+      } else {
+        delete m.steelDesign;
+      }
     }
     get().setModel(m);
   },
@@ -304,6 +327,12 @@ export const useBeamStore = create<BeamState>((set, get) => ({
     m.concreteDesign = { ...base, ...patch };
     get().setModel(m);
   },
+  setSteelDesign(patch) {
+    const m = deepClone(get().model);
+    const base = m.steelDesign ?? { ...DEFAULT_STEEL_DESIGN };
+    m.steelDesign = { ...base, ...patch };
+    get().setModel(m);
+  },
   applyDesignedRebar() {
     const r = get().results;
     if (!r?.ec2Design) return;
@@ -312,7 +341,7 @@ export const useBeamStore = create<BeamState>((set, get) => ({
     m.concrete = {
       ...base,
       As: Math.ceil(r.ec2Design.As_req),
-      As_prime: Math.ceil(r.ec2Design.As_prime_req),
+      As_prime: Math.ceil(r.ec2Design.As2_req),
     };
     get().setModel(m);
   },

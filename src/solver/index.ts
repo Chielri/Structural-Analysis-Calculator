@@ -6,7 +6,8 @@ import { buildBMD } from './bendingMoment';
 import { buildDeflection } from './deflection';
 import { bendingStress, extremeFiberC, shearStress } from './stress';
 import { computeEC2Deflection } from './ec2Deflection';
-import { designConcreteFlexure } from './ec2Design';
+import { designConcreteBeam } from './ec2Design';
+import { designSteelBeam } from './ec3Design';
 
 export * from './types';
 export { classifyBeam } from './reactions';
@@ -97,11 +98,30 @@ export function solve(model: BeamModel): AnalysisResults {
       ? maxBendingStress / model.material.fy
       : undefined;
 
-  const ec2Design = designConcreteFlexure({ model, bmd }) ?? undefined;
+  const ec2Design = designConcreteBeam({ model, bmd, sfd }) ?? undefined;
   if (ec2Design) {
-    if (!ec2Design.feasible)
+    if (!ec2Design.bendingFeasible)
       warnings.push('EC2 6.1: Flexural design infeasible — increase section depth.');
+    if (!ec2Design.shearFeasible)
+      warnings.push('EC2 6.2.3: Shear design infeasible — increase b, d, or fck.');
+    if (!ec2Design.pass_ld)
+      warnings.push(
+        `EC2 7.4.2: l/d = ${ec2Design.ld_actual.toFixed(1)} > allowable ${ec2Design.ld_allow.toFixed(1)}.`,
+      );
+    if (!ec2Design.pass_crack)
+      warnings.push(
+        `EC2 7.3.4: wk = ${ec2Design.wk.toFixed(3)} mm > wmax = ${ec2Design.wmax.toFixed(2)} mm.`,
+      );
     for (const w of ec2Design.warnings) warnings.push('EC2 design: ' + w);
+  }
+
+  const ec3Design = designSteelBeam({ model, bmd, sfd }) ?? undefined;
+  if (ec3Design) {
+    if (!ec3Design.pass_M)
+      warnings.push(`EC3 6.3: MEd/MRd = ${ec3Design.utilM.toFixed(2)} > 1.0.`);
+    if (!ec3Design.pass_V)
+      warnings.push(`EC3 6.2.6: VEd/Vpl,Rd = ${ec3Design.utilV.toFixed(2)} > 1.0.`);
+    for (const w of ec3Design.warnings) warnings.push('EC3 design: ' + w);
   }
 
   const ec2 = computeEC2Deflection({ model, bmd }) ?? undefined;
@@ -134,5 +154,6 @@ export function solve(model: BeamModel): AnalysisResults {
     warnings,
     ec2,
     ec2Design,
+    ec3Design,
   };
 }

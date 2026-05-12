@@ -3,6 +3,7 @@ import { DiagramChart } from '../results/DiagramChart';
 import { ReactionTable } from '../results/ReactionTable';
 import { StressResults } from '../results/StressResults';
 import { EC2Results } from '../results/EC2Results';
+import { EC3Results } from '../results/EC3Results';
 import { SummaryCard } from '../results/SummaryCard';
 import {
   fromSI_deflection_mm,
@@ -19,6 +20,7 @@ const TABS: { value: ResultTab; label: string }[] = [
   { value: 'deflection', label: 'Deflection' },
   { value: 'stress', label: 'Stress' },
   { value: 'ec2', label: 'EC2 RC' },
+  { value: 'ec3', label: 'EC3 Steel' },
 ];
 
 export function ResultsPanel() {
@@ -26,9 +28,16 @@ export function ResultsPanel() {
   const setTab = useBeamStore((s) => s.setResultTab);
   const results = useBeamStore((s) => s.results);
   const isConcrete = useBeamStore((s) => s.model.material.isConcrete === true);
+  const hasSteelDesign = useBeamStore(
+    (s) => !!s.model.steelDesign && !!s.model.section.iSection,
+  );
   const sys = useBeamStore((s) => s.unitSystem);
   const lbl = labels(sys);
-  const visibleTabs = TABS.filter((t) => t.value !== 'ec2' || isConcrete);
+  const visibleTabs = TABS.filter((t) => {
+    if (t.value === 'ec2') return isConcrete;
+    if (t.value === 'ec3') return hasSteelDesign;
+    return true;
+  });
 
   return (
     <div className="panel p-3 h-full flex flex-col">
@@ -97,6 +106,7 @@ export function ResultsPanel() {
         {results && tab === 'stress' && <StressResults />}
 
         {results && tab === 'ec2' && isConcrete && <EC2Results />}
+        {results && tab === 'ec3' && hasSteelDesign && <EC3Results />}
       </div>
     </div>
   );
