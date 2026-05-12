@@ -1,0 +1,1959 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Beam Calculator — Structural Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background-attachment: fixed;
+    color: #e2e8f0;
+    overflow: hidden;
+  }
+  .num, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.5); }
+
+  .panel {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    border-radius: 8px;
+  }
+  .field-label {
+    display: flex; justify-content: space-between;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #94a3b8;
+    margin-bottom: 4px; font-weight: 500;
+  }
+  .field-input, select {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus, select:focus {
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 2px rgba(14,165,233,0.25);
+  }
+  .btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: #0ea5e9; color: white; }
+  .btn-primary:hover { background: #0284c7; }
+  .btn-ghost {
+    background: rgba(30,41,59,0.6);
+    color: #e2e8f0;
+    border: 1px solid #334155;
+  }
+  .btn-ghost:hover { background: rgba(51,65,85,0.8); }
+  .btn-danger { background: rgba(220,38,38,0.85); color: white; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-xs { padding: 3px 8px; font-size: 11px; }
+
+  .tab-button {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tab-button:hover { color: #f1f5f9; }
+  .tab-button.active { color: #0ea5e9; border-bottom-color: #0ea5e9; }
+
+  /* Layout */
+  .app {
+    height: 100vh; display: flex; flex-direction: column;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: rgba(15,23,42,0.7); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(51,65,85,0.6);
+  }
+  .brand {
+    font-weight: 600; font-size: 17px; color: #0ea5e9;
+    display: flex; align-items: center; gap: 8px;
+    margin-right: 8px;
+  }
+  .toolbar .spacer { flex: 1; }
+  .main {
+    flex: 1; display: flex; gap: 12px; padding: 12px; overflow: hidden;
+  }
+  .sidebar {
+    width: 320px; flex-shrink: 0;
+    padding: 12px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-tabs {
+    display: flex; border-bottom: 1px solid #334155; margin-bottom: 12px;
+    overflow-x: auto;
+  }
+  .sidebar-content {
+    flex: 1; overflow-y: auto; padding-right: 6px;
+  }
+  .center {
+    flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+  }
+  .canvas-panel {
+    height: 42%; flex-shrink: 0; padding: 12px; min-width: 0;
+    display: flex; flex-direction: column;
+  }
+  .canvas-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .canvas-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+  .canvas-hover { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #0ea5e9; }
+  .canvas-svg-wrapper { flex: 1; overflow: auto; min-height: 0; }
+  #beam-svg { display: block; width: 100%; }
+  .results-panel {
+    flex: 1; padding: 12px; min-width: 0; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .results-tabs { display: flex; border-bottom: 1px solid #334155; }
+  .results-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; font-size: 13px; }
+  .summary-item {
+    padding: 4px 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .summary-item .label { color: #94a3b8; font-size: 11px; }
+  .summary-item .value { color: #0ea5e9; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .summary-item .unit { color: #64748b; font-size: 11px; }
+  .summary-item.warn .value { color: #ef4444; }
+
+  .results-body { flex: 1; overflow: auto; min-height: 0; }
+
+  table.reactions {
+    width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    border-collapse: collapse;
+  }
+  table.reactions th {
+    text-align: left; padding: 8px 6px; color: #94a3b8;
+    border-bottom: 1px solid #334155; font-size: 11px; text-transform: uppercase;
+  }
+  table.reactions td { padding: 6px; border-bottom: 1px solid #1e293b; }
+  td.pos { color: #22c55e; }
+  td.neg { color: #ef4444; }
+
+  .err-banner {
+    color: #fca5a5; background: rgba(127, 29, 29, 0.4);
+    border: 1px solid rgba(239,68,68,0.4); padding: 4px 10px; border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .item-card {
+    padding: 8px;
+    background: rgba(15,23,42,0.5);
+    border: 1px solid rgba(51,65,85,0.4);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .item-card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+
+  h3.section-title {
+    font-size: 13px; font-weight: 600; margin: 0; color: #e2e8f0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .section-block { margin-bottom: 16px; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+  .checkbox-row input[type=checkbox] { accent-color: #0ea5e9; }
+
+  .stress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; }
+  .stress-stat { padding: 12px; }
+  .stress-stat .label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
+  .stress-stat .value { font-size: 18px; color: #0ea5e9; font-family: 'JetBrains Mono', monospace; }
+  .stress-stat .value .unit { font-size: 11px; color: #64748b; }
+  .stress-stat.warn .value { color: #ef4444; }
+  .stress-warn-banner {
+    color: #fca5a5; background: rgba(127,29,29,0.2);
+    border: 1px solid rgba(239,68,68,0.3); padding: 8px 12px; border-radius: 4px;
+    font-size: 13px; margin: 8px;
+  }
+
+  .help-text { font-size: 11px; color: #94a3b8; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; line-height: 1.4; }
+
+  .hidden { display: none !important; }
+
+  /* Tooltip on chart */
+  .chart-tooltip {
+    position: absolute; pointer-events: none;
+    background: rgba(15,23,42,0.95); border: 1px solid #334155; padding: 6px 10px;
+    border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: #e2e8f0;
+    z-index: 10;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar { width: 280px; }
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; max-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="toolbar">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M3 18h18M5 18l3-12 4 8 4-4 3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Beam Calculator
+    </div>
+    <button class="btn btn-ghost" id="btn-undo" title="Undo (Ctrl+Z)">↶</button>
+    <button class="btn btn-ghost" id="btn-redo" title="Redo (Ctrl+Y)">↷</button>
+    <span style="color:#94a3b8;font-size:12px;margin-left:12px;">Units</span>
+    <select id="units-select" style="width:auto;">
+      <option value="SI">SI (m, kN)</option>
+      <option value="Imperial">Imperial (ft, kip)</option>
+    </select>
+    <button class="btn btn-ghost" id="btn-theme" title="Toggle theme">☾</button>
+    <div class="spacer"></div>
+    <div id="error-banner" class="err-banner hidden"></div>
+    <button class="btn btn-ghost" id="btn-load">Load</button>
+    <input type="file" id="file-input" accept=".json,application/json" class="hidden" />
+    <button class="btn btn-ghost" id="btn-save">Save</button>
+    <button class="btn btn-ghost" id="btn-csv">CSV</button>
+    <button class="btn btn-ghost" id="btn-pdf">PDF</button>
+    <button class="btn btn-primary" id="btn-solve" style="margin-left:8px;">▶ Solve</button>
+  </header>
+
+  <main class="main">
+    <aside class="sidebar panel">
+      <nav class="sidebar-tabs" id="sidebar-tabs">
+        <button class="tab-button active" data-tab="beam">Beam</button>
+        <button class="tab-button" data-tab="supports">Supports</button>
+        <button class="tab-button" data-tab="loads">Loads</button>
+        <button class="tab-button" data-tab="section">Section</button>
+        <button class="tab-button" data-tab="presets">Presets</button>
+      </nav>
+      <div class="sidebar-content" id="sidebar-content"></div>
+    </aside>
+
+    <section class="center">
+      <div class="canvas-panel panel">
+        <div class="canvas-header">
+          <div class="canvas-title">Beam Schematic</div>
+          <div class="canvas-hover" id="canvas-hover"></div>
+        </div>
+        <div class="canvas-svg-wrapper">
+          <svg id="beam-svg" width="800" height="320" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+
+      <div class="results-panel panel">
+        <nav class="results-tabs" id="results-tabs">
+          <button class="tab-button active" data-rtab="reactions">Reactions</button>
+          <button class="tab-button" data-rtab="sfd">SFD</button>
+          <button class="tab-button" data-rtab="bmd">BMD</button>
+          <button class="tab-button" data-rtab="deflection">Deflection</button>
+          <button class="tab-button" data-rtab="stress">Stress</button>
+        </nav>
+        <div class="results-summary" id="results-summary"></div>
+        <div class="results-body" id="results-body"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+'use strict';
+
+/* ========================================================================
+ * SOLVER — pure-JS structural beam analysis
+ * ======================================================================== */
+
+const G = 9.81;
+
+function makeId(prefix) { return prefix + '_' + Math.random().toString(36).slice(2, 9); }
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function trapz(arr) {
+  let s = 0;
+  for (let i = 1; i < arr.length; i++) s += 0.5 * (arr[i].value + arr[i-1].value) * (arr[i].x - arr[i-1].x);
+  return s;
+}
+function cumTrapz(arr) {
+  const out = new Array(arr.length).fill(0);
+  let acc = 0;
+  for (let i = 1; i < arr.length; i++) {
+    acc += 0.5 * (arr[i].value + arr[i-1].value) * (arr[i].x - arr[i-1].x);
+    out[i] = acc;
+  }
+  return out;
+}
+
+function distIntensityAt(d, x) {
+  if (x < d.startPos || x > d.endPos) return 0;
+  const span = d.endPos - d.startPos;
+  if (span <= 0) return 0;
+  return lerp(d.startMag, d.endMag, (x - d.startPos) / span);
+}
+function distForceUpTo(d, xLimit) {
+  if (xLimit <= d.startPos) return 0;
+  const xEnd = Math.min(xLimit, d.endPos);
+  const wEnd = distIntensityAt(d, xEnd);
+  return 0.5 * (d.startMag + wEnd) * (xEnd - d.startPos);
+}
+function distCentroidUpTo(d, xLimit) {
+  if (xLimit <= d.startPos) return d.startPos;
+  const xEnd = Math.min(xLimit, d.endPos);
+  const a = d.startMag, b = distIntensityAt(d, xEnd);
+  const L = xEnd - d.startPos;
+  if (a + b === 0 || L === 0) return d.startPos;
+  return d.startPos + (L * (a + 2 * b)) / (3 * (a + b));
+}
+function distTotalForce(d) { return 0.5 * (d.startMag + d.endMag) * (d.endPos - d.startPos); }
+function distTotalCentroid(d) {
+  const a = d.startMag, b = d.endMag, L = d.endPos - d.startPos;
+  if (a + b === 0 || L === 0) return (d.startPos + d.endPos) / 2;
+  return d.startPos + (L * (a + 2 * b)) / (3 * (a + b));
+}
+function pointVerticalMag(p) {
+  if (!p.angle) return p.magnitude;
+  return p.magnitude * Math.cos(p.angle * Math.PI / 180);
+}
+function selfWeightUDL(area, density) { return (density * area * G) / 1000; }
+function expandLoads(model) {
+  const loads = model.loads.slice();
+  if (model.selfWeight && model.section.A && model.material.density) {
+    const w = selfWeightUDL(model.section.A, model.material.density);
+    if (w > 0) loads.push({ kind: 'distributed', id: '__self_weight__', startPos: 0, endPos: model.length, startMag: w, endMag: w });
+  }
+  return loads;
+}
+function buildSampleX(model, n) {
+  n = n || 500;
+  const L = model.length;
+  const pts = new Set();
+  pts.add(0); pts.add(L);
+  for (let i = 1; i < n; i++) pts.add((i * L) / n);
+  for (const s of model.supports) {
+    pts.add(s.position);
+    pts.add(Math.max(0, s.position - 1e-9));
+    pts.add(Math.min(L, s.position + 1e-9));
+  }
+  for (const h of model.hinges) pts.add(h.position);
+  for (const ld of model.loads) {
+    if (ld.kind === 'point' || ld.kind === 'moment') {
+      pts.add(Math.max(0, ld.position - 1e-9));
+      pts.add(Math.min(L, ld.position + 1e-9));
+    } else if (ld.kind === 'distributed') {
+      pts.add(ld.startPos); pts.add(ld.endPos);
+    }
+  }
+  return Array.from(pts).sort((a, b) => a - b);
+}
+
+/* === Reactions: equilibrium-based for determinate beams === */
+
+function classifyBeam(model) {
+  let R = 0;
+  for (const s of model.supports) {
+    if (s.type === 'pin') R += 2;
+    else if (s.type === 'roller') R += 1;
+    else if (s.type === 'fixed') R += 3;
+    else if (s.type === 'spring') R += 1;
+  }
+  const eqs = 3 + model.hinges.length;
+  const degree = R - eqs;
+  let classification;
+  if (degree < 0) classification = 'unstable / mechanism';
+  else if (degree === 0) classification = 'statically determinate';
+  else classification = 'statically indeterminate (degree ' + degree + ')';
+  return { degree, reactionCount: R, classification };
+}
+
+function loadResultantAndMoment(loads) {
+  let F = 0, M = 0;
+  for (const ld of loads) {
+    if (ld.kind === 'point') {
+      const fy = pointVerticalMag(ld);
+      F += fy; M += fy * ld.position;
+    } else if (ld.kind === 'distributed') {
+      const fy = distTotalForce(ld), xc = distTotalCentroid(ld);
+      F += fy; M += fy * xc;
+    } else if (ld.kind === 'moment') {
+      M += ld.magnitude;
+    }
+  }
+  return { F, M };
+}
+
+function gaussSolve(Ain, bin) {
+  const n = Ain.length;
+  const A = Ain.map((r) => r.slice());
+  const b = bin.slice();
+  for (let i = 0; i < n; i++) {
+    let maxRow = i, maxVal = Math.abs(A[i][i]);
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(A[k][i]) > maxVal) { maxVal = Math.abs(A[k][i]); maxRow = k; }
+    }
+    if (maxVal < 1e-12) throw new Error('Singular matrix');
+    if (maxRow !== i) { [A[i], A[maxRow]] = [A[maxRow], A[i]]; [b[i], b[maxRow]] = [b[maxRow], b[i]]; }
+    for (let k = i + 1; k < n; k++) {
+      const factor = A[k][i] / A[i][i];
+      for (let j = i; j < n; j++) A[k][j] -= factor * A[i][j];
+      b[k] -= factor * b[i];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    let sum = b[i];
+    for (let j = i + 1; j < n; j++) sum -= A[i][j] * x[j];
+    x[i] = sum / A[i][i];
+  }
+  return x;
+}
+
+function solveReactionsEquilibrium(model) {
+  const loads = expandLoads(model);
+  const supports = model.supports.slice().sort((a, b) => a.position - b.position);
+  const unknowns = [];
+  for (let i = 0; i < supports.length; i++) {
+    const s = supports[i];
+    if (s.type === 'pin') {
+      unknowns.push({ supportIdx: i, component: 'Fx', position: s.position });
+      unknowns.push({ supportIdx: i, component: 'Fy', position: s.position });
+    } else if (s.type === 'roller' || s.type === 'spring') {
+      unknowns.push({ supportIdx: i, component: 'Fy', position: s.position });
+    } else if (s.type === 'fixed') {
+      unknowns.push({ supportIdx: i, component: 'Fx', position: s.position });
+      unknowns.push({ supportIdx: i, component: 'Fy', position: s.position });
+      unknowns.push({ supportIdx: i, component: 'Mz', position: s.position });
+    }
+  }
+  const nUnknowns = unknowns.length;
+  const nEqs = 3 + model.hinges.length;
+  if (nUnknowns !== nEqs) throw new Error('Beam not determinate; using stiffness method.');
+
+  const A = Array.from({ length: nEqs }, () => new Array(nUnknowns).fill(0));
+  const b = new Array(nEqs).fill(0);
+
+  const { F: Ftotal, M: Mtotal } = loadResultantAndMoment(loads);
+  let Fx_load = 0;
+  for (const ld of loads) {
+    if (ld.kind === 'point' && ld.angle) Fx_load += ld.magnitude * Math.sin(ld.angle * Math.PI / 180);
+  }
+
+  for (let i = 0; i < unknowns.length; i++) if (unknowns[i].component === 'Fx') A[0][i] = 1;
+  b[0] = -Fx_load;
+  for (let i = 0; i < unknowns.length; i++) if (unknowns[i].component === 'Fy') A[1][i] = 1;
+  b[1] = Ftotal;
+  for (let i = 0; i < unknowns.length; i++) {
+    const u = unknowns[i];
+    if (u.component === 'Fy') A[2][i] = -u.position;
+    if (u.component === 'Mz') A[2][i] = 1;
+  }
+  b[2] = -Mtotal;
+
+  for (let h = 0; h < model.hinges.length; h++) {
+    const xH = model.hinges[h].position, row = 3 + h;
+    for (let i = 0; i < unknowns.length; i++) {
+      const u = unknowns[i];
+      if (u.position >= xH) continue;
+      if (u.component === 'Fy') A[row][i] = -(xH - u.position);
+      if (u.component === 'Mz') A[row][i] = 1;
+    }
+    let Mload_left = 0;
+    for (const ld of loads) {
+      if (ld.kind === 'point' && ld.position < xH) Mload_left += pointVerticalMag(ld) * (xH - ld.position);
+      else if (ld.kind === 'moment' && ld.position < xH) Mload_left += ld.magnitude;
+      else if (ld.kind === 'distributed' && ld.startPos < xH) {
+        const xEnd = Math.min(ld.endPos, xH);
+        if (xEnd > ld.startPos) {
+          const tEnd = (xEnd - ld.startPos) / (ld.endPos - ld.startPos);
+          const wEnd = ld.startMag + (ld.endMag - ld.startMag) * tEnd;
+          const L = xEnd - ld.startPos;
+          const force = 0.5 * (ld.startMag + wEnd) * L;
+          const xcRel = (ld.startMag + wEnd) === 0 ? 0 : (L * (ld.startMag + 2 * wEnd)) / (3 * (ld.startMag + wEnd));
+          Mload_left += force * (xH - (ld.startPos + xcRel));
+        }
+      }
+    }
+    b[row] = -Mload_left;
+  }
+
+  const x = gaussSolve(A, b);
+  const reactionsBySupport = new Map();
+  for (let i = 0; i < unknowns.length; i++) {
+    const u = unknowns[i], support = supports[u.supportIdx];
+    let r = reactionsBySupport.get(u.supportIdx);
+    if (!r) { r = { supportId: support.id, position: support.position, Fy: 0 }; reactionsBySupport.set(u.supportIdx, r); }
+    if (u.component === 'Fx') r.Fx = x[i];
+    if (u.component === 'Fy') r.Fy = x[i];
+    if (u.component === 'Mz') r.Mz = x[i];
+  }
+  return Array.from(reactionsBySupport.values()).sort((a, b) => a.position - b.position);
+}
+
+/* === Stiffness Method for indeterminate beams === */
+
+function elementStiffness(EI, L) {
+  const L2 = L * L, L3 = L2 * L, a = EI / L3;
+  return [
+    [12*a,   6*L*a,  -12*a,   6*L*a],
+    [6*L*a,  4*L2*a, -6*L*a,  2*L2*a],
+    [-12*a, -6*L*a,  12*a,   -6*L*a],
+    [6*L*a,  2*L2*a, -6*L*a,  4*L2*a],
+  ];
+}
+
+function addPartialLinearLoadFEF(fe, Le, a, b, wA, wB) {
+  const n = 32, h = (b - a) / n;
+  for (let i = 0; i <= n; i++) {
+    const x = a + i * h;
+    const t = (b - a) === 0 ? 0 : (x - a) / (b - a);
+    const w = wA + (wB - wA) * t;
+    const sw = (i === 0 || i === n) ? 1 : (i % 2 === 0 ? 2 : 4);
+    const aDist = x, bDist = Le - x;
+    if (aDist < 0 || bDist < 0) continue;
+    const F_i = (w * bDist * bDist * (Le + 2 * aDist)) / (Le*Le*Le);
+    const M_i = (w * aDist * bDist * bDist) / (Le*Le);
+    const F_j = (w * aDist * aDist * (Le + 2 * bDist)) / (Le*Le*Le);
+    const M_j = -(w * aDist * aDist * bDist) / (Le*Le);
+    const factor = (sw * h) / 3;
+    fe[0] += -F_i * factor;
+    fe[1] += -M_i * factor;
+    fe[2] += -F_j * factor;
+    fe[3] += -M_j * factor;
+  }
+}
+
+function elementFEF(loads, x_i, x_j, Le) {
+  const fe = [0, 0, 0, 0];
+  for (const ld of loads) {
+    if (ld.kind === 'distributed') {
+      const a0 = Math.max(ld.startPos, x_i);
+      const b0 = Math.min(ld.endPos, x_j);
+      if (b0 - a0 <= 0) continue;
+      const span = ld.endPos - ld.startPos;
+      const wA = ld.startMag + ((a0 - ld.startPos) / span) * (ld.endMag - ld.startMag);
+      const wB = ld.startMag + ((b0 - ld.startPos) / span) * (ld.endMag - ld.startMag);
+      addPartialLinearLoadFEF(fe, Le, a0 - x_i, b0 - x_i, wA, wB);
+    } else if (ld.kind === 'point') {
+      const a = ld.position - x_i;
+      if (a > 1e-9 && a < Le - 1e-9) {
+        const b = Le - a;
+        const Pval = pointVerticalMag(ld);
+        fe[0] += -(Pval * b * b * (Le + 2 * a)) / (Le*Le*Le);
+        fe[1] += -(Pval * a * b * b) / (Le*Le);
+        fe[2] += -(Pval * a * a * (Le + 2 * b)) / (Le*Le*Le);
+        fe[3] += (Pval * a * a * b) / (Le*Le);
+      }
+    } else if (ld.kind === 'moment') {
+      const a = ld.position - x_i;
+      if (a > 1e-9 && a < Le - 1e-9) {
+        const b = Le - a;
+        const M0 = -ld.magnitude;
+        fe[0] += -(-6 * M0 * a * b) / (Le*Le*Le);
+        fe[1] += -(M0 * b * (2 * a - b)) / (Le*Le);
+        fe[2] += -(6 * M0 * a * b) / (Le*Le*Le);
+        fe[3] += -(M0 * a * (2 * b - a)) / (Le*Le);
+      }
+    }
+  }
+  return fe;
+}
+
+function solveStiffness(model) {
+  const L = model.length;
+  const EI = model.material.E * 1e3 * model.section.I;
+  if (EI <= 0) throw new Error('Section EI must be positive');
+  const loads = expandLoads(model);
+
+  const nodeSet = new Set();
+  nodeSet.add(0); nodeSet.add(L);
+  for (const s of model.supports) nodeSet.add(s.position);
+  for (const h of model.hinges) nodeSet.add(h.position);
+  for (const ld of loads) {
+    if (ld.kind === 'point' || ld.kind === 'moment') nodeSet.add(ld.position);
+    if (ld.kind === 'distributed') { nodeSet.add(ld.startPos); nodeSet.add(ld.endPos); }
+  }
+  const nodes = Array.from(nodeSet).filter((x) => x >= -1e-9 && x <= L + 1e-9).sort((a, b) => a - b);
+
+  const hingeNodeIdx = new Set();
+  for (const h of model.hinges) {
+    const idx = nodes.findIndex((x) => Math.abs(x - h.position) < 1e-9);
+    if (idx > 0 && idx < nodes.length - 1) hingeNodeIdx.add(idx);
+  }
+
+  const dofMap = [];
+  let dofCount = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    const v = dofCount++;
+    if (hingeNodeIdx.has(i)) {
+      const tL = dofCount++, tR = dofCount++;
+      dofMap.push({ v, thetaLeft: tL, thetaRight: tR });
+    } else {
+      const t = dofCount++;
+      dofMap.push({ v, thetaLeft: t, thetaRight: t });
+    }
+  }
+  const nDof = dofCount;
+  const K = Array.from({ length: nDof }, () => new Array(nDof).fill(0));
+  const F = new Array(nDof).fill(0);
+
+  for (let e = 0; e < nodes.length - 1; e++) {
+    const x_i = nodes[e], x_j = nodes[e + 1], Le = x_j - x_i;
+    if (Le <= 0) continue;
+    const ke = elementStiffness(EI, Le);
+    const fe = elementFEF(loads, x_i, x_j, Le);
+    const di = dofMap[e], dj = dofMap[e + 1];
+    const idx = [di.v, di.thetaRight, dj.v, dj.thetaLeft];
+    for (let a = 0; a < 4; a++) {
+      F[idx[a]] += fe[a];
+      for (let b = 0; b < 4; b++) K[idx[a]][idx[b]] += ke[a][b];
+    }
+  }
+
+  for (const ld of loads) {
+    if (ld.kind === 'point') {
+      const idx = nodes.findIndex((x) => Math.abs(x - ld.position) < 1e-9);
+      if (idx >= 0) F[dofMap[idx].v] += -pointVerticalMag(ld);
+    } else if (ld.kind === 'moment') {
+      const idx = nodes.findIndex((x) => Math.abs(x - ld.position) < 1e-9);
+      if (idx >= 0) {
+        const dm = dofMap[idx];
+        if (dm.thetaLeft === dm.thetaRight) F[dm.thetaLeft] += -ld.magnitude;
+        else { F[dm.thetaLeft] += -ld.magnitude / 2; F[dm.thetaRight] += -ld.magnitude / 2; }
+      }
+    }
+  }
+
+  const constrained = new Map();
+  for (const s of model.supports) {
+    const idx = nodes.findIndex((x) => Math.abs(x - s.position) < 1e-9);
+    if (idx < 0) continue;
+    const d = dofMap[idx];
+    const settl = s.settlement || 0;
+    if (s.type === 'pin' || s.type === 'roller') constrained.set(d.v, -settl);
+    else if (s.type === 'fixed') {
+      constrained.set(d.v, -settl);
+      constrained.set(d.thetaLeft, 0);
+      if (d.thetaLeft !== d.thetaRight) constrained.set(d.thetaRight, 0);
+    } else if (s.type === 'spring') {
+      const k = s.springStiffness || 0;
+      K[d.v][d.v] += k;
+    }
+  }
+
+  const free = [];
+  for (let i = 0; i < nDof; i++) if (!constrained.has(i)) free.push(i);
+  const F_eff = free.map((i) => {
+    let v = F[i];
+    for (const [c, val] of constrained) v -= K[i][c] * val;
+    return v;
+  });
+  const K_ff = free.map((i) => free.map((j) => K[i][j]));
+  let d_free;
+  try { d_free = gaussSolve(K_ff, F_eff); }
+  catch (e) { throw new Error('Stiffness method failed: ' + e.message); }
+
+  const d = new Array(nDof).fill(0);
+  for (const [c, val] of constrained) d[c] = val;
+  for (let i = 0; i < free.length; i++) d[free[i]] = d_free[i];
+
+  const reactions = [];
+  for (const s of model.supports) {
+    const idx = nodes.findIndex((x) => Math.abs(x - s.position) < 1e-9);
+    if (idx < 0) continue;
+    const dmap = dofMap[idx];
+    const rxn = { supportId: s.id, position: s.position, Fy: 0 };
+    if (s.type === 'pin' || s.type === 'roller' || s.type === 'fixed') {
+      let rv = -F[dmap.v];
+      for (let j = 0; j < nDof; j++) rv += K[dmap.v][j] * d[j];
+      rxn.Fy = rv;
+    } else if (s.type === 'spring') {
+      rxn.Fy = -(s.springStiffness || 0) * d[dmap.v];
+    }
+    if (s.type === 'fixed') {
+      let rm = -F[dmap.thetaLeft];
+      for (let j = 0; j < nDof; j++) rm += K[dmap.thetaLeft][j] * d[j];
+      rxn.Mz = -rm;
+    }
+    if (s.type === 'pin' || s.type === 'fixed') {
+      let Fx = 0;
+      for (const ld of loads) if (ld.kind === 'point' && ld.angle) Fx -= ld.magnitude * Math.sin(ld.angle * Math.PI / 180);
+      const horiz = model.supports.filter((ss) => ss.type === 'pin' || ss.type === 'fixed');
+      if (horiz.length > 0) rxn.Fx = Fx / horiz.length;
+    }
+    reactions.push(rxn);
+  }
+  return reactions.sort((a, b) => a.position - b.position);
+}
+
+/* === Internal forces === */
+
+function shearAt(model, reactions, x) {
+  let V = 0;
+  const loads = expandLoads(model);
+  for (const r of reactions) if (r.position < x) V += r.Fy;
+  for (const ld of loads) {
+    if (ld.kind === 'point' && ld.position < x) V -= pointVerticalMag(ld);
+    else if (ld.kind === 'distributed' && ld.startPos < x) V -= distForceUpTo(ld, x);
+  }
+  return V;
+}
+function momentAt(model, reactions, x) {
+  let M = 0;
+  const loads = expandLoads(model);
+  for (const r of reactions) {
+    if (r.position <= x + 1e-12) {
+      M += r.Fy * (x - r.position);
+      if (r.Mz) M += r.Mz;
+    }
+  }
+  for (const ld of loads) {
+    if (ld.kind === 'point' && ld.position < x) M -= pointVerticalMag(ld) * (x - ld.position);
+    else if (ld.kind === 'distributed' && ld.startPos < x) {
+      const F = distForceUpTo(ld, x), xc = distCentroidUpTo(ld, x);
+      M -= F * (x - xc);
+    } else if (ld.kind === 'moment' && ld.position < x) M += ld.magnitude;
+  }
+  return M;
+}
+
+function buildSFD(model, reactions) {
+  return buildSampleX(model).map((x) => ({ x, value: shearAt(model, reactions, x) }));
+}
+function buildBMD(model, reactions) {
+  return buildSampleX(model).map((x) => ({ x, value: momentAt(model, reactions, x) }));
+}
+
+function buildDeflection(model, reactions) {
+  const L = model.length;
+  const EI = model.material.E * 1e3 * model.section.I; // kN·m²
+  const n = 1000;
+  const xs = [];
+  for (let i = 0; i <= n; i++) xs.push((i * L) / n);
+  if (EI <= 0) return { deflection: xs.map((x) => ({ x, value: 0 })), slope: xs.map((x) => ({ x, value: 0 })) };
+  const M = xs.map((x) => ({ x, value: momentAt(model, reactions, x) }));
+  const curv = M.map((p) => ({ x: p.x, value: p.value / EI }));
+  const slopeUC = cumTrapz(curv);
+  const slopeArr = slopeUC.map((v, i) => ({ x: curv[i].x, value: v }));
+  const vNoConst = cumTrapz(slopeArr);
+
+  const bcs = [];
+  for (const s of model.supports) {
+    const settl = s.settlement || 0;
+    if (s.type === 'pin' || s.type === 'roller') bcs.push({ x: s.position, v: -settl });
+    else if (s.type === 'fixed') bcs.push({ x: s.position, v: -settl, slope: 0 });
+    else if (s.type === 'spring') {
+      const rxn = reactions.find((r) => r.supportId === s.id);
+      const F = rxn ? rxn.Fy : 0;
+      const k = s.springStiffness || 0;
+      bcs.push({ x: s.position, v: k > 0 ? -F / k : 0 });
+    }
+  }
+
+  function findIdx(target) {
+    let lo = 0, hi = xs.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (xs[mid] < target) lo = mid + 1; else hi = mid; }
+    if (lo > 0 && Math.abs(xs[lo-1] - target) < Math.abs(xs[lo] - target)) return lo - 1;
+    return lo;
+  }
+
+  const rows = [], rhs = [];
+  for (const bc of bcs) {
+    const idx = findIdx(bc.x);
+    if (bc.v !== undefined) { rows.push([bc.x, 1]); rhs.push(bc.v - vNoConst[idx]); }
+    if (bc.slope !== undefined) { rows.push([1, 0]); rhs.push(bc.slope - slopeUC[idx]); }
+  }
+  let C1 = 0, C2 = 0;
+  if (rows.length >= 2) {
+    let n11=0, n12=0, n22=0, r1=0, r2=0;
+    for (const r of rows) { n11 += r[0]*r[0]; n12 += r[0]*r[1]; n22 += r[1]*r[1]; }
+    for (let i = 0; i < rows.length; i++) { r1 += rows[i][0]*rhs[i]; r2 += rows[i][1]*rhs[i]; }
+    const det = n11*n22 - n12*n12;
+    if (Math.abs(det) > 1e-12) { C1 = (n22*r1 - n12*r2)/det; C2 = (n11*r2 - n12*r1)/det; }
+  } else if (rows.length === 1) C2 = rhs[0] - rows[0][0]*C1;
+
+  return {
+    deflection: xs.map((x, i) => ({ x, value: -(vNoConst[i] + C1*x + C2) * 1000 })),
+    slope: xs.map((x, i) => ({ x, value: slopeUC[i] + C1 })),
+  };
+}
+
+function bendingStress(M_kNm, I_m4, c_m) {
+  if (I_m4 <= 0) return 0;
+  return (M_kNm * 1e6 * c_m * 1000) / (I_m4 * 1e12);
+}
+function shearStress(V_kN, model) {
+  const A = model.section.A;
+  if (!A || A <= 0) return undefined;
+  const shape = model.section.shape;
+  let k = 1;
+  if (shape === 'rectangle') k = 1.5;
+  else if (shape === 'circle') k = 4 / 3;
+  else if (shape === 'I' || shape === 'channel') {
+    if (model.section.d && model.section.b) {
+      return ((V_kN * 1000) / (model.section.d * model.section.b)) / 1e6;
+    }
+  }
+  return ((k * V_kN * 1000) / A) / 1e6;
+}
+function extremeFiberC(model) {
+  const { yTop, yBot, d } = model.section;
+  let c = 0;
+  if (yTop !== undefined) c = Math.max(c, Math.abs(yTop));
+  if (yBot !== undefined) c = Math.max(c, Math.abs(yBot));
+  if (c === 0 && d !== undefined) c = d / 2;
+  return c;
+}
+
+function validate(model) {
+  const errors = [];
+  if (model.length <= 0) errors.push('Beam length must be > 0.');
+  if (model.supports.length === 0) errors.push('At least one support is required.');
+  if (!(model.section.I > 0)) errors.push('Section I must be > 0.');
+  if (!(model.material.E > 0)) errors.push('Material E must be > 0.');
+  for (const s of model.supports)
+    if (s.position < 0 || s.position > model.length) errors.push('Support ' + s.id + ' outside beam.');
+  for (const ld of model.loads) {
+    if ((ld.kind === 'point' || ld.kind === 'moment') && (ld.position < 0 || ld.position > model.length))
+      errors.push('Load ' + ld.id + ' outside beam.');
+    if (ld.kind === 'distributed' && (ld.startPos < 0 || ld.endPos > model.length || ld.startPos >= ld.endPos))
+      errors.push('Distributed load ' + ld.id + ' invalid extent.');
+  }
+  return errors;
+}
+
+function solve(model) {
+  const errs = validate(model);
+  if (errs.length) throw new Error('Invalid: ' + errs.join(' '));
+  const cls = classifyBeam(model);
+  if (cls.degree < 0) throw new Error('Beam is unstable.');
+  const hasSpring = model.supports.some((s) => s.type === 'spring');
+  const hasHinges = model.hinges.length > 0;
+  let reactions, method;
+  if (cls.degree === 0 && !hasSpring && !hasHinges) {
+    try { reactions = solveReactionsEquilibrium(model); method = 'equilibrium'; }
+    catch { reactions = solveStiffness(model); method = 'stiffness'; }
+  } else { reactions = solveStiffness(model); method = 'stiffness'; }
+
+  const sfd = buildSFD(model, reactions);
+  const bmd = buildBMD(model, reactions);
+  const { deflection, slope } = buildDeflection(model, reactions);
+  const maxShear = Math.max.apply(null, sfd.map((p) => Math.abs(p.value)));
+  const maxMoment = Math.max.apply(null, bmd.map((p) => p.value));
+  const minMoment = Math.min.apply(null, bmd.map((p) => p.value));
+  const peakM = Math.max(Math.abs(maxMoment), Math.abs(minMoment));
+  const maxDeflection = Math.max.apply(null, deflection.map((p) => Math.abs(p.value)));
+  const c = extremeFiberC(model);
+  const maxBendingStress = c > 0 ? bendingStress(peakM, model.section.I, c) : undefined;
+  const maxShearStressVal = shearStress(maxShear, model);
+  const utilization = (maxBendingStress !== undefined && model.material.fy) ? maxBendingStress / model.material.fy : undefined;
+  return {
+    reactions, sfd, bmd, deflection, slope,
+    maxShear, maxMoment, minMoment, maxDeflection,
+    maxBendingStress, maxShearStress: maxShearStressVal, utilization,
+    determinacy: { degree: cls.degree, classification: cls.classification, method },
+    warnings: [],
+  };
+}
+
+/* ========================================================================
+ * UNITS & FORMATTING
+ * ======================================================================== */
+
+const SI_LBL = { length:'m', force:'kN', distLoad:'kN/m', moment:'kN·m', stress:'MPa', deflection:'mm', E:'MPa', I:'m⁴' };
+const IMP_LBL = { length:'ft', force:'kip', distLoad:'kip/ft', moment:'kip·ft', stress:'ksi', deflection:'in', E:'ksi', I:'in⁴' };
+const M_PER_FT = 0.3048, KN_PER_KIP = 4.4482216, MPA_PER_KSI = 6.89476, MM_PER_IN = 25.4;
+const M4_PER_IN4 = Math.pow(0.0254, 4);
+function labels(s) { return s === 'SI' ? SI_LBL : IMP_LBL; }
+function fromSI(kind, v, sys) {
+  if (sys === 'SI') return v;
+  if (kind === 'length') return v / M_PER_FT;
+  if (kind === 'force') return v / KN_PER_KIP;
+  if (kind === 'distLoad') return v / (KN_PER_KIP / M_PER_FT);
+  if (kind === 'moment') return v / (KN_PER_KIP * M_PER_FT);
+  if (kind === 'stress' || kind === 'E') return v / MPA_PER_KSI;
+  if (kind === 'deflection') return v / MM_PER_IN;
+  if (kind === 'I') return v / M4_PER_IN4;
+  return v;
+}
+function toSI(kind, v, sys) {
+  if (sys === 'SI') return v;
+  if (kind === 'length') return v * M_PER_FT;
+  if (kind === 'force') return v * KN_PER_KIP;
+  if (kind === 'distLoad') return v * (KN_PER_KIP / M_PER_FT);
+  if (kind === 'moment') return v * (KN_PER_KIP * M_PER_FT);
+  if (kind === 'stress' || kind === 'E') return v * MPA_PER_KSI;
+  if (kind === 'deflection') return v * MM_PER_IN;
+  if (kind === 'I') return v * M4_PER_IN4;
+  return v;
+}
+function fmt(v, digits) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  digits = digits || 3;
+  if (Math.abs(v) < 1e-9) return '0';
+  if (Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3) return v.toExponential(digits);
+  return v.toFixed(digits).replace(/\.?0+$/, '');
+}
+
+/* ========================================================================
+ * DATA — Materials & Sections
+ * ======================================================================== */
+
+const MATERIALS = [
+  { name:'Structural Steel (A36)', E:200000, fy:250, density:7850 },
+  { name:'Structural Steel (A992)', E:200000, fy:345, density:7850 },
+  { name:'Aluminium 6061-T6', E:68900, fy:276, density:2700 },
+  { name:'Aluminium 7075-T6', E:71700, fy:503, density:2810 },
+  { name:'Concrete (25 MPa)', E:25000, fy:25, density:2400 },
+  { name:'Concrete (35 MPa)', E:30000, fy:35, density:2400 },
+  { name:'Timber (Douglas Fir)', E:13100, fy:50, density:540 },
+  { name:'Timber (Glulam)', E:13800, fy:30, density:530 },
+  { name:'Stainless Steel (304)', E:193000, fy:215, density:8000 },
+  { name:'Titanium Ti-6Al-4V', E:113800, fy:880, density:4430 },
+];
+
+function W(name, A_mm2, d_mm, Ix_e6) {
+  const d = d_mm / 1000;
+  return { category:'W', name, shape:'I', A:A_mm2/1e6, I:(Ix_e6*1e6)/1e12, yTop:d/2, yBot:d/2, d, b:0.01 };
+}
+function CS(name, A_mm2, d_mm, Ix_e6) {
+  const d = d_mm / 1000;
+  return { category:'C', name, shape:'channel', A:A_mm2/1e6, I:(Ix_e6*1e6)/1e12, yTop:d/2, yBot:d/2, d, b:0.01 };
+}
+function rectangleSection(b_mm, h_mm, name) {
+  const b = b_mm/1000, h = h_mm/1000;
+  return { category:'Rect', name: name || ('Rectangle '+b_mm+'×'+h_mm), shape:'rectangle', A:b*h, I:(b*h*h*h)/12, yTop:h/2, yBot:h/2, d:h, b };
+}
+function circleSection(d_mm, name) {
+  const r = d_mm/1000/2;
+  return { category:'Circle', name: name || ('Circle Ø'+d_mm), shape:'circle', A:Math.PI*r*r, I:(Math.PI*Math.pow(r,4))/4, yTop:r, yBot:r, d:2*r, b:2*r };
+}
+function pipeSection(od, id, name) {
+  const R = od/1000/2, r = id/1000/2;
+  return { category:'Pipe', name: name || ('Pipe Ø'+od+'/'+id), shape:'circle', A:Math.PI*(R*R-r*r), I:(Math.PI*(Math.pow(R,4)-Math.pow(r,4)))/4, yTop:R, yBot:R, d:2*R, b:2*(R-r) };
+}
+
+const WIDE_FLANGE = [
+  W('W310×129',16500,318,308), W('W310×74',9480,310,165), W('W310×67',8530,306,145),
+  W('W310×39',4930,310,84.8), W('W310×33',4180,313,65), W('W310×24',3040,305,42.8), W('W310×21',2680,303,37),
+  W('W250×149',19000,282,259), W('W250×80',10200,256,126), W('W250×67',8560,257,104), W('W250×58',7400,252,87.3),
+  W('W250×45',5700,266,71.1), W('W250×28',3620,260,39.9), W('W250×22',2850,254,28.8), W('W250×18',2280,251,22.5),
+  W('W200×100',12700,229,113), W('W200×86',11000,222,94.7), W('W200×71',9100,216,76.6), W('W200×59',7580,210,61.2),
+  W('W200×46',5890,203,45.5), W('W200×36',4570,201,34.4), W('W200×22',2860,206,20),
+  W('W150×37',4730,162,22.2), W('W150×30',3790,157,17.1), W('W150×22',2860,152,12.1),
+  W('W150×24',3060,160,13.4), W('W150×18',2290,153,9.19), W('W150×14',1730,150,6.84),
+];
+const CHANNELS = [
+  CS('C310×45',5690,305,67.4), CS('C310×31',3930,305,53.7), CS('C250×30',3790,254,32.8),
+  CS('C200×28',3550,203,18.3), CS('C200×17',2180,203,13.6),
+  CS('C150×19',2470,152,7.24), CS('C150×12',1550,152,5.45),
+];
+const STD_RECT = [rectangleSection(100,200), rectangleSection(150,300), rectangleSection(200,400), rectangleSection(300,600)];
+const STD_CIRC = [circleSection(50), circleSection(100), circleSection(150), circleSection(200)];
+const ALL_SECTIONS = [].concat(WIDE_FLANGE, CHANNELS, STD_RECT, STD_CIRC);
+const DEFAULT_SECTION = WIDE_FLANGE.find((w) => w.name === 'W250×58') || WIDE_FLANGE[0];
+const DEFAULT_MATERIAL = MATERIALS[0];
+
+/* ========================================================================
+ * STATE
+ * ======================================================================== */
+
+const HISTORY_LIMIT = 50;
+
+const PRESETS = {
+  ss_udl: { label:'Simply Supported + UDL', model: { length:10,
+    supports:[{id:'s1',type:'pin',position:0},{id:'s2',type:'roller',position:10}],
+    loads:[{kind:'distributed',id:'d1',startPos:0,endPos:10,startMag:5,endMag:5}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  cantilever_tip: { label:'Cantilever + Tip Load', model: { length:6,
+    supports:[{id:'s1',type:'fixed',position:0}],
+    loads:[{kind:'point',id:'p1',position:6,magnitude:10}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  ss_two_point: { label:'SS + Two Point Loads', model: { length:8,
+    supports:[{id:'s1',type:'pin',position:0},{id:'s2',type:'roller',position:8}],
+    loads:[{kind:'point',id:'p1',position:2,magnitude:15},{kind:'point',id:'p2',position:6,magnitude:10}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  overhanging: { label:'Overhanging Beam', model: { length:12,
+    supports:[{id:'s1',type:'pin',position:2},{id:'s2',type:'roller',position:10}],
+    loads:[{kind:'point',id:'p1',position:12,magnitude:8}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  combined: { label:'Combined Loading', model: { length:10,
+    supports:[{id:'s1',type:'pin',position:0},{id:'s2',type:'roller',position:10}],
+    loads:[
+      {kind:'distributed',id:'d1',startPos:0,endPos:10,startMag:4,endMag:4},
+      {kind:'point',id:'p1',position:4,magnitude:12},
+      {kind:'moment',id:'m1',position:7,magnitude:8}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  propped: { label:'Propped Cantilever + UDL', model: { length:8,
+    supports:[{id:'s1',type:'fixed',position:0},{id:'s2',type:'roller',position:8}],
+    loads:[{kind:'distributed',id:'d1',startPos:0,endPos:8,startMag:6,endMag:6}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+  continuous: { label:'Two-Span Continuous', model: { length:10,
+    supports:[{id:'s1',type:'pin',position:0},{id:'s2',type:'roller',position:5},{id:'s3',type:'roller',position:10}],
+    loads:[{kind:'distributed',id:'d1',startPos:0,endPos:10,startMag:5,endMag:5}],
+    hinges:[], section:DEFAULT_SECTION, material:DEFAULT_MATERIAL }},
+};
+
+const state = {
+  model: deepClone(PRESETS.ss_udl.model),
+  results: null,
+  errors: [],
+  unitSystem: 'SI',
+  theme: 'dark',
+  resultTab: 'reactions',
+  sidebarTab: 'beam',
+  history: [],
+  future: [],
+};
+
+function recordHistory() {
+  state.history.push(deepClone(state.model));
+  if (state.history.length > HISTORY_LIMIT) state.history.shift();
+  state.future = [];
+}
+
+function setModel(newModel, doRecord) {
+  if (doRecord !== false) recordHistory();
+  state.model = newModel;
+  runSolve();
+  render();
+}
+
+function runSolve() {
+  const errs = validate(state.model);
+  if (errs.length) { state.errors = errs; state.results = null; return; }
+  try { state.results = solve(state.model); state.errors = []; }
+  catch (e) { state.errors = [e.message]; state.results = null; }
+}
+
+function undo() {
+  if (state.history.length === 0) return;
+  state.future.unshift(deepClone(state.model));
+  if (state.future.length > HISTORY_LIMIT) state.future.pop();
+  state.model = state.history.pop();
+  runSolve(); render();
+}
+function redo() {
+  if (state.future.length === 0) return;
+  state.history.push(deepClone(state.model));
+  state.model = state.future.shift();
+  runSolve(); render();
+}
+
+/* ========================================================================
+ * RENDER
+ * ======================================================================== */
+
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === 'className') e.className = attrs[k];
+    else if (k === 'onClick') e.addEventListener('click', attrs[k]);
+    else if (k === 'onChange') e.addEventListener('change', attrs[k]);
+    else if (k === 'onInput') e.addEventListener('input', attrs[k]);
+    else if (k === 'style' && typeof attrs[k] === 'object') Object.assign(e.style, attrs[k]);
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  if (children !== undefined) {
+    if (!Array.isArray(children)) children = [children];
+    for (const c of children) {
+      if (c === null || c === undefined || c === false) continue;
+      e.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
+    }
+  }
+  return e;
+}
+
+function svgEl(tag, attrs, children) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  if (attrs) for (const k in attrs) {
+    if (k === 'onMouseMove') e.addEventListener('mousemove', attrs[k]);
+    else if (k === 'onMouseLeave') e.addEventListener('mouseleave', attrs[k]);
+    else if (k === 'onClick') e.addEventListener('click', attrs[k]);
+    else if (k === 'style' && typeof attrs[k] === 'object') Object.assign(e.style, attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  if (children !== undefined) {
+    if (!Array.isArray(children)) children = [children];
+    for (const c of children) {
+      if (c === null || c === undefined || c === false) continue;
+      e.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
+    }
+  }
+  return e;
+}
+
+function field(label, unit, child) {
+  const lbl = el('div', { className: 'field-label' }, [el('span', null, label), unit ? el('span', { style: { color: '#64748b' } }, unit) : null]);
+  return el('label', { style: { display: 'block', marginBottom: '8px' } }, [lbl, child]);
+}
+
+function numInput(value, onChange, min) {
+  const inp = el('input', { type: 'number', step: 'any', className: 'field-input' });
+  inp.value = isFinite(value) ? value : '';
+  if (min !== undefined) inp.setAttribute('min', String(min));
+  inp.addEventListener('change', (e) => {
+    const v = parseFloat(e.target.value);
+    if (isFinite(v)) onChange(v);
+  });
+  return inp;
+}
+
+function selectInput(value, options, onChange) {
+  const sel = el('select', { className: 'field-input' });
+  for (const o of options) {
+    const opt = el('option', { value: o.value }, o.label);
+    if (o.value === value) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', (e) => onChange(e.target.value));
+  return sel;
+}
+
+/* === Sidebar tabs === */
+
+function renderSidebar() {
+  const tabs = document.getElementById('sidebar-tabs');
+  for (const btn of tabs.querySelectorAll('.tab-button')) {
+    btn.classList.toggle('active', btn.dataset.tab === state.sidebarTab);
+  }
+  const root = document.getElementById('sidebar-content');
+  root.innerHTML = '';
+  if (state.sidebarTab === 'beam') root.appendChild(renderBeamPanel());
+  else if (state.sidebarTab === 'supports') root.appendChild(renderSupportPanel());
+  else if (state.sidebarTab === 'loads') root.appendChild(renderLoadsPanel());
+  else if (state.sidebarTab === 'section') root.appendChild(renderSectionPanel());
+  else if (state.sidebarTab === 'presets') root.appendChild(renderPresetsPanel());
+}
+
+function renderBeamPanel() {
+  const lbl = labels(state.unitSystem);
+  return el('div', null, [
+    field('Beam Length', lbl.length, numInput(fromSI('length', state.model.length, state.unitSystem), (v) => {
+      const m = deepClone(state.model);
+      m.length = Math.max(0.001, toSI('length', v, state.unitSystem));
+      setModel(m);
+    }, 0.01)),
+    el('label', { className: 'checkbox-row' }, [
+      (function() {
+        const cb = el('input', { type: 'checkbox' });
+        cb.checked = !!state.model.selfWeight;
+        cb.addEventListener('change', (e) => {
+          const m = deepClone(state.model);
+          m.selfWeight = e.target.checked;
+          setModel(m);
+        });
+        return cb;
+      })(),
+      el('span', null, 'Include self-weight'),
+    ]),
+    el('div', { className: 'help-text' },
+      'Self-weight requires a section with area A and a material density. Computed as w = A·ρ·g (kN/m).'),
+  ]);
+}
+
+function renderSupportPanel() {
+  const lbl = labels(state.unitSystem);
+  const root = el('div', { className: 'section-block' });
+  root.appendChild(el('h3', { className: 'section-title' }, [
+    'Supports (' + state.model.supports.length + ')',
+    el('button', { className: 'btn btn-ghost btn-xs', onClick: () => {
+      const m = deepClone(state.model);
+      m.supports.push({ id: makeId('s'), type: 'roller', position: m.length / 2 });
+      setModel(m);
+    }}, '+ Add'),
+  ]));
+  const SUP_TYPES = [
+    { value: 'pin', label: 'Pin' }, { value: 'roller', label: 'Roller' },
+    { value: 'fixed', label: 'Fixed' }, { value: 'spring', label: 'Spring' },
+  ];
+  for (const s of state.model.supports) {
+    const card = el('div', { className: 'item-card' });
+    card.appendChild(el('div', { className: 'row' }, [
+      field('Type', null, selectInput(s.type, SUP_TYPES, (v) => {
+        const m = deepClone(state.model);
+        const idx = m.supports.findIndex((x) => x.id === s.id);
+        m.supports[idx].type = v; setModel(m);
+      })),
+      field('Position', lbl.length, numInput(fromSI('length', s.position, state.unitSystem), (v) => {
+        const m = deepClone(state.model);
+        const idx = m.supports.findIndex((x) => x.id === s.id);
+        m.supports[idx].position = toSI('length', v, state.unitSystem); setModel(m);
+      })),
+    ]));
+    if (s.type === 'spring') {
+      card.appendChild(field('Stiffness', lbl.force + '/' + lbl.length, numInput(s.springStiffness || 0, (v) => {
+        const m = deepClone(state.model);
+        const idx = m.supports.findIndex((x) => x.id === s.id);
+        m.supports[idx].springStiffness = v; setModel(m);
+      })));
+    }
+    card.appendChild(field('Settlement', lbl.length, numInput(s.settlement || 0, (v) => {
+      const m = deepClone(state.model);
+      const idx = m.supports.findIndex((x) => x.id === s.id);
+      m.supports[idx].settlement = v; setModel(m);
+    })));
+    card.appendChild(el('button', { className: 'btn btn-danger btn-xs', style: { width: '100%' }, onClick: () => {
+      const m = deepClone(state.model);
+      m.supports = m.supports.filter((x) => x.id !== s.id); setModel(m);
+    }}, 'Delete'));
+    root.appendChild(card);
+  }
+  return root;
+}
+
+function renderLoadsPanel() {
+  const lbl = labels(state.unitSystem);
+  const wrap = el('div', null);
+
+  // === Point Loads ===
+  const ptHead = el('div', { className: 'section-block' });
+  ptHead.appendChild(el('h3', { className: 'section-title' }, [
+    'Point Loads (' + state.model.loads.filter((l) => l.kind === 'point').length + ')',
+    el('button', { className: 'btn btn-ghost btn-xs', onClick: () => {
+      const m = deepClone(state.model);
+      m.loads.push({ kind: 'point', id: makeId('p'), position: m.length / 2, magnitude: 10 });
+      setModel(m);
+    }}, '+ Add'),
+  ]));
+  for (const l of state.model.loads.filter((x) => x.kind === 'point')) {
+    const card = el('div', { className: 'item-card' });
+    card.appendChild(el('div', { className: 'row' }, [
+      field('Position', lbl.length, numInput(fromSI('length', l.position, state.unitSystem), (v) => updateLoad(l.id, { position: toSI('length', v, state.unitSystem) }))),
+      field('Magnitude', lbl.force, numInput(fromSI('force', l.magnitude, state.unitSystem), (v) => updateLoad(l.id, { magnitude: toSI('force', v, state.unitSystem) }))),
+    ]));
+    card.appendChild(field('Angle (from vertical)', '°', numInput(l.angle || 0, (v) => updateLoad(l.id, { angle: v }))));
+    card.appendChild(deleteBtn(l.id, 'load'));
+    ptHead.appendChild(card);
+  }
+  wrap.appendChild(ptHead);
+
+  // === Distributed Loads ===
+  const dlHead = el('div', { className: 'section-block' });
+  dlHead.appendChild(el('h3', { className: 'section-title' }, [
+    'Distributed Loads (' + state.model.loads.filter((l) => l.kind === 'distributed').length + ')',
+    el('button', { className: 'btn btn-ghost btn-xs', onClick: () => {
+      const m = deepClone(state.model);
+      m.loads.push({ kind: 'distributed', id: makeId('d'), startPos: 0, endPos: m.length, startMag: 5, endMag: 5 });
+      setModel(m);
+    }}, '+ Add'),
+  ]));
+  for (const l of state.model.loads.filter((x) => x.kind === 'distributed')) {
+    const card = el('div', { className: 'item-card' });
+    card.appendChild(el('div', { className: 'row' }, [
+      field('Start pos', lbl.length, numInput(fromSI('length', l.startPos, state.unitSystem), (v) => updateLoad(l.id, { startPos: toSI('length', v, state.unitSystem) }))),
+      field('End pos', lbl.length, numInput(fromSI('length', l.endPos, state.unitSystem), (v) => updateLoad(l.id, { endPos: toSI('length', v, state.unitSystem) }))),
+      field('Start mag', lbl.distLoad, numInput(fromSI('distLoad', l.startMag, state.unitSystem), (v) => updateLoad(l.id, { startMag: toSI('distLoad', v, state.unitSystem) }))),
+      field('End mag', lbl.distLoad, numInput(fromSI('distLoad', l.endMag, state.unitSystem), (v) => updateLoad(l.id, { endMag: toSI('distLoad', v, state.unitSystem) }))),
+    ]));
+    card.appendChild(deleteBtn(l.id, 'load'));
+    dlHead.appendChild(card);
+  }
+  wrap.appendChild(dlHead);
+
+  // === Moments ===
+  const mHead = el('div', { className: 'section-block' });
+  mHead.appendChild(el('h3', { className: 'section-title' }, [
+    'Applied Moments (' + state.model.loads.filter((l) => l.kind === 'moment').length + ')',
+    el('button', { className: 'btn btn-ghost btn-xs', onClick: () => {
+      const m = deepClone(state.model);
+      m.loads.push({ kind: 'moment', id: makeId('m'), position: m.length / 2, magnitude: 10 });
+      setModel(m);
+    }}, '+ Add'),
+  ]));
+  for (const l of state.model.loads.filter((x) => x.kind === 'moment')) {
+    const card = el('div', { className: 'item-card' });
+    card.appendChild(el('div', { className: 'row' }, [
+      field('Position', lbl.length, numInput(fromSI('length', l.position, state.unitSystem), (v) => updateLoad(l.id, { position: toSI('length', v, state.unitSystem) }))),
+      field('Mag (CW+)', lbl.moment, numInput(fromSI('moment', l.magnitude, state.unitSystem), (v) => updateLoad(l.id, { magnitude: toSI('moment', v, state.unitSystem) }))),
+    ]));
+    card.appendChild(deleteBtn(l.id, 'load'));
+    mHead.appendChild(card);
+  }
+  wrap.appendChild(mHead);
+
+  // === Hinges ===
+  const hHead = el('div', { className: 'section-block' });
+  hHead.appendChild(el('h3', { className: 'section-title' }, [
+    'Internal Hinges (' + state.model.hinges.length + ')',
+    el('button', { className: 'btn btn-ghost btn-xs', onClick: () => {
+      const m = deepClone(state.model);
+      m.hinges.push({ id: makeId('h'), position: m.length / 2 });
+      setModel(m);
+    }}, '+ Add'),
+  ]));
+  for (const h of state.model.hinges) {
+    const card = el('div', { className: 'item-card' });
+    card.appendChild(field('Position', lbl.length, numInput(fromSI('length', h.position, state.unitSystem), (v) => {
+      const m = deepClone(state.model);
+      const idx = m.hinges.findIndex((x) => x.id === h.id);
+      m.hinges[idx].position = toSI('length', v, state.unitSystem);
+      setModel(m);
+    })));
+    card.appendChild(el('button', { className: 'btn btn-danger btn-xs', style: { width: '100%' }, onClick: () => {
+      const m = deepClone(state.model);
+      m.hinges = m.hinges.filter((x) => x.id !== h.id);
+      setModel(m);
+    }}, 'Delete'));
+    hHead.appendChild(card);
+  }
+  wrap.appendChild(hHead);
+
+  return wrap;
+}
+
+function updateLoad(id, patch) {
+  const m = deepClone(state.model);
+  const idx = m.loads.findIndex((l) => l.id === id);
+  if (idx >= 0) Object.assign(m.loads[idx], patch);
+  setModel(m);
+}
+function deleteBtn(id, kind) {
+  return el('button', { className: 'btn btn-danger btn-xs', style: { width: '100%' }, onClick: () => {
+    const m = deepClone(state.model);
+    if (kind === 'load') m.loads = m.loads.filter((l) => l.id !== id);
+    setModel(m);
+  }}, 'Delete');
+}
+
+let sectionUiTab = 'library';
+const customSec = { rectB: 200, rectH: 400, circD: 200, pipeOD: 200, pipeID: 180 };
+
+function renderSectionPanel() {
+  const lbl = labels(state.unitSystem);
+  const wrap = el('div', null);
+  wrap.appendChild(field('Material', null, selectInput(state.model.material.name,
+    MATERIALS.map((m) => ({ value: m.name, label: m.name })),
+    (v) => {
+      const found = MATERIALS.find((m) => m.name === v);
+      if (found) {
+        const mm = deepClone(state.model);
+        mm.material = found;
+        setModel(mm);
+      }
+    })));
+  wrap.appendChild(el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '11px', color: '#94a3b8', marginBottom: '12px' } }, [
+    el('div', null, ['E: ', el('span', { className: 'mono', style: { color: '#e2e8f0' } }, state.model.material.E.toLocaleString()), ' ' + lbl.E]),
+    state.model.material.fy ? el('div', null, ['fy: ', el('span', { className: 'mono', style: { color: '#e2e8f0' } }, String(state.model.material.fy)), ' ' + lbl.stress]) : el('span'),
+  ]));
+
+  wrap.appendChild(el('div', { className: 'field-label' }, 'Section Source'));
+  const tabs = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', marginBottom: '8px' } });
+  for (const t of ['library', 'custom', 'rectangle', 'circle', 'pipe']) {
+    const b = el('button', { className: 'btn ' + (sectionUiTab === t ? 'btn-primary' : 'btn-ghost') + ' btn-xs',
+      onClick: () => { sectionUiTab = t; renderSidebar(); }
+    }, t === 'library' ? 'Lib' : t.slice(0, 4));
+    tabs.appendChild(b);
+  }
+  wrap.appendChild(tabs);
+
+  if (sectionUiTab === 'library') {
+    const opts = [].concat(
+      WIDE_FLANGE.map((s) => ({ value: s.name, label: 'W: ' + s.name })),
+      CHANNELS.map((s) => ({ value: s.name, label: 'C: ' + s.name })),
+      STD_RECT.map((s) => ({ value: s.name, label: s.name })),
+      STD_CIRC.map((s) => ({ value: s.name, label: s.name })),
+    );
+    wrap.appendChild(field('Section', null, selectInput(state.model.section.name || '', opts, (v) => {
+      const found = ALL_SECTIONS.find((s) => s.name === v);
+      if (found) { const m = deepClone(state.model); m.section = found; setModel(m); }
+    })));
+  } else if (sectionUiTab === 'custom') {
+    wrap.appendChild(field('I (Moment of Inertia)', lbl.I, numInput(fromSI('I', state.model.section.I, state.unitSystem), (v) => {
+      const m = deepClone(state.model);
+      m.section = Object.assign({}, m.section, { I: toSI('I', v, state.unitSystem), name: 'custom' });
+      setModel(m);
+    })));
+    wrap.appendChild(field('Area A', lbl.length + '²', numInput(state.model.section.A || 0, (v) => {
+      const m = deepClone(state.model);
+      m.section = Object.assign({}, m.section, { A: v, name: 'custom' });
+      setModel(m);
+    })));
+    wrap.appendChild(field('y top', lbl.length, numInput(state.model.section.yTop || 0, (v) => {
+      const m = deepClone(state.model);
+      m.section = Object.assign({}, m.section, { yTop: v, name: 'custom' });
+      setModel(m);
+    })));
+    wrap.appendChild(field('y bot', lbl.length, numInput(state.model.section.yBot || 0, (v) => {
+      const m = deepClone(state.model);
+      m.section = Object.assign({}, m.section, { yBot: v, name: 'custom' });
+      setModel(m);
+    })));
+  } else if (sectionUiTab === 'rectangle') {
+    wrap.appendChild(field('Width b', 'mm', numInput(customSec.rectB, (v) => { customSec.rectB = v; })));
+    wrap.appendChild(field('Height h', 'mm', numInput(customSec.rectH, (v) => { customSec.rectH = v; })));
+    wrap.appendChild(el('button', { className: 'btn btn-primary', style: { width: '100%' }, onClick: () => {
+      const m = deepClone(state.model); m.section = rectangleSection(customSec.rectB, customSec.rectH); setModel(m);
+    }}, 'Apply'));
+  } else if (sectionUiTab === 'circle') {
+    wrap.appendChild(field('Diameter', 'mm', numInput(customSec.circD, (v) => { customSec.circD = v; })));
+    wrap.appendChild(el('button', { className: 'btn btn-primary', style: { width: '100%' }, onClick: () => {
+      const m = deepClone(state.model); m.section = circleSection(customSec.circD); setModel(m);
+    }}, 'Apply'));
+  } else if (sectionUiTab === 'pipe') {
+    wrap.appendChild(field('Outer Ø', 'mm', numInput(customSec.pipeOD, (v) => { customSec.pipeOD = v; })));
+    wrap.appendChild(field('Inner Ø', 'mm', numInput(customSec.pipeID, (v) => { customSec.pipeID = v; })));
+    wrap.appendChild(el('button', { className: 'btn btn-primary', style: { width: '100%' }, onClick: () => {
+      const m = deepClone(state.model); m.section = pipeSection(customSec.pipeOD, customSec.pipeID); setModel(m);
+    }}, 'Apply'));
+  }
+
+  wrap.appendChild(el('div', { className: 'help-text mono' }, [
+    el('div', null, 'Current: ' + (state.model.section.name || '—')),
+    el('div', null, 'I = ' + fromSI('I', state.model.section.I, state.unitSystem).toExponential(3) + ' ' + lbl.I),
+    el('div', null, 'A = ' + (state.model.section.A || 0).toExponential(3) + ' ' + lbl.length + '²'),
+  ]));
+
+  return wrap;
+}
+
+function renderPresetsPanel() {
+  const wrap = el('div', null, [el('h3', { className: 'section-title', style: { marginBottom: '12px' } }, 'Example Presets')]);
+  for (const k of Object.keys(PRESETS)) {
+    wrap.appendChild(el('button', {
+      className: 'btn btn-ghost', style: { width: '100%', textAlign: 'left', marginBottom: '6px' },
+      onClick: () => setModel(deepClone(PRESETS[k].model)),
+    }, PRESETS[k].label));
+  }
+  return wrap;
+}
+
+/* === Beam Schematic SVG === */
+
+const PAD = { left: 60, right: 60, top: 70, bottom: 70 };
+
+function renderBeamCanvas() {
+  const svg = document.getElementById('beam-svg');
+  const wrap = svg.parentElement;
+  const w = Math.max(400, wrap.clientWidth || 800);
+  const h = 320;
+  svg.setAttribute('width', String(w));
+  svg.setAttribute('height', String(h));
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.innerHTML = '';
+
+  const beamY = h / 2;
+  const L = state.model.length;
+  const scale = (w - PAD.left - PAD.right) / Math.max(L, 0.001);
+  const toX = (x) => PAD.left + x * scale;
+  const lbl = labels(state.unitSystem);
+
+  // Grid
+  for (let i = 0; i <= 10; i++) {
+    const x = PAD.left + ((w - PAD.left - PAD.right) * i) / 10;
+    svg.appendChild(svgEl('line', {
+      x1: x, x2: x, y1: PAD.top - 20, y2: h - PAD.bottom + 20,
+      stroke: 'rgba(255,255,255,0.04)', 'stroke-dasharray': '2 4',
+    }));
+  }
+
+  // Distributed loads
+  for (const ld of state.model.loads) if (ld.kind === 'distributed') drawDistLoad(svg, ld, toX, beamY, lbl.distLoad);
+
+  // Beam
+  svg.appendChild(svgEl('line', { x1: toX(0), x2: toX(L), y1: beamY, y2: beamY, stroke: '#94a3b8', 'stroke-width': 4 }));
+
+  // Supports
+  for (const s of state.model.supports) drawSupport(svg, s, toX, beamY);
+  // Hinges
+  for (const hh of state.model.hinges) {
+    svg.appendChild(svgEl('circle', { cx: toX(hh.position), cy: beamY, r: 6, fill: '#0f172a', stroke: '#f59e0b', 'stroke-width': 2 }));
+  }
+  // Point loads
+  for (const ld of state.model.loads) if (ld.kind === 'point') drawPointLoad(svg, ld, toX, beamY, lbl.force);
+  // Moments
+  for (const ld of state.model.loads) if (ld.kind === 'moment') drawMoment(svg, ld, toX, beamY, lbl.moment);
+  // Dimension line
+  drawDimensionLine(svg, toX, h - PAD.bottom + 36, lbl.length);
+
+  // Hover marker
+  const hoverLine = svgEl('line', {
+    id: 'hover-line', x1: 0, x2: 0, y1: PAD.top - 20, y2: h - PAD.bottom + 30,
+    stroke: '#0ea5e9', 'stroke-width': 1, 'stroke-dasharray': '2 4', opacity: 0,
+  });
+  svg.appendChild(hoverLine);
+
+  svg.onmousemove = (e) => {
+    const rect = svg.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const xModel = (sx - PAD.left) / scale;
+    if (xModel >= 0 && xModel <= L) {
+      hoverLine.setAttribute('x1', String(toX(xModel)));
+      hoverLine.setAttribute('x2', String(toX(xModel)));
+      hoverLine.setAttribute('opacity', '1');
+      document.getElementById('canvas-hover').textContent = 'x = ' + fromSI('length', xModel, state.unitSystem).toFixed(3) + ' ' + lbl.length;
+    } else {
+      hoverLine.setAttribute('opacity', '0');
+      document.getElementById('canvas-hover').textContent = '';
+    }
+  };
+  svg.onmouseleave = () => {
+    hoverLine.setAttribute('opacity', '0');
+    document.getElementById('canvas-hover').textContent = '';
+  };
+}
+
+function drawSupport(svg, s, toX, beamY) {
+  const x = toX(s.position);
+  if (s.type === 'pin') {
+    svg.appendChild(svgEl('polygon', { points: x+','+beamY+' '+(x-12)+','+(beamY+24)+' '+(x+12)+','+(beamY+24), fill: '#0ea5e9' }));
+    svg.appendChild(svgEl('line', { x1: x-16, x2: x+16, y1: beamY+24, y2: beamY+24, stroke: '#94a3b8', 'stroke-width': 2 }));
+    for (let i = 0; i < 5; i++) {
+      svg.appendChild(svgEl('line', { x1: x-12+i*6, x2: x-16+i*6, y1: beamY+24, y2: beamY+32, stroke: '#64748b' }));
+    }
+  } else if (s.type === 'roller') {
+    svg.appendChild(svgEl('circle', { cx: x, cy: beamY+8, r: 8, fill: '#0ea5e9' }));
+    svg.appendChild(svgEl('line', { x1: x-16, x2: x+16, y1: beamY+18, y2: beamY+18, stroke: '#94a3b8', 'stroke-width': 2 }));
+    for (let i = 0; i < 5; i++) {
+      svg.appendChild(svgEl('line', { x1: x-12+i*6, x2: x-16+i*6, y1: beamY+18, y2: beamY+26, stroke: '#64748b' }));
+    }
+  } else if (s.type === 'fixed') {
+    svg.appendChild(svgEl('rect', { x: x-4, y: beamY-20, width: 4, height: 40, fill: '#0ea5e9' }));
+    for (let i = 0; i < 6; i++) {
+      svg.appendChild(svgEl('line', { x1: x-4, x2: x-12, y1: beamY-18+i*7, y2: beamY-12+i*7, stroke: '#64748b' }));
+    }
+  } else if (s.type === 'spring') {
+    let pts = '';
+    for (let i = 0; i < 6; i++) {
+      const off = i % 2 === 0 ? -5 : 5;
+      pts += (x + off) + ',' + (beamY + 6 + i * 4) + ' ';
+    }
+    svg.appendChild(svgEl('polyline', { points: pts.trim(), fill: 'none', stroke: '#0ea5e9', 'stroke-width': 2 }));
+    svg.appendChild(svgEl('line', { x1: x-14, x2: x+14, y1: beamY+32, y2: beamY+32, stroke: '#94a3b8' }));
+  }
+}
+
+function drawPointLoad(svg, l, toX, beamY, unit) {
+  const x = toX(l.position);
+  const tipY = beamY - 3, tailY = tipY - 50;
+  svg.appendChild(svgEl('line', { x1: x, x2: x, y1: tailY, y2: tipY, stroke: '#ef4444', 'stroke-width': 2 }));
+  svg.appendChild(svgEl('polygon', { points: x+','+tipY+' '+(x-5)+','+(tipY-8)+' '+(x+5)+','+(tipY-8), fill: '#ef4444' }));
+  const t = svgEl('text', {
+    x: x, y: tailY - 4, 'text-anchor': 'middle', 'font-size': 11, fill: '#fca5a5', 'font-family': 'JetBrains Mono',
+  }, fmt(fromSI('force', l.magnitude, state.unitSystem), 2) + ' ' + unit);
+  svg.appendChild(t);
+}
+
+function drawDistLoad(svg, l, toX, beamY, unit) {
+  const xs = toX(l.startPos), xe = toX(l.endPos);
+  const baseY = beamY - 4, maxArrow = 38;
+  const maxMag = Math.max(Math.abs(l.startMag), Math.abs(l.endMag), 1e-9);
+  const yAt = (mag) => baseY - (Math.abs(mag) / maxMag) * maxArrow;
+  svg.appendChild(svgEl('polygon', {
+    points: xs+','+yAt(l.startMag)+' '+xe+','+yAt(l.endMag)+' '+xe+','+baseY+' '+xs+','+baseY,
+    fill: 'rgba(249,115,22,0.18)', stroke: '#f97316', 'stroke-width': 1,
+  }));
+  const n = Math.max(5, Math.round((xe - xs) / 25));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, x = xs + (xe - xs) * t;
+    const mag = l.startMag + t * (l.endMag - l.startMag);
+    const y = yAt(mag);
+    svg.appendChild(svgEl('line', { x1: x, x2: x, y1: y, y2: baseY, stroke: '#f97316', 'stroke-width': 1.5 }));
+    svg.appendChild(svgEl('polygon', { points: x+','+baseY+' '+(x-3)+','+(baseY-6)+' '+(x+3)+','+(baseY-6), fill: '#f97316' }));
+  }
+  svg.appendChild(svgEl('text', { x: xs, y: yAt(l.startMag) - 4, 'font-size': 10, fill: '#fdba74', 'font-family': 'JetBrains Mono' },
+    fmt(fromSI('distLoad', l.startMag, state.unitSystem), 2) + ' ' + unit));
+  svg.appendChild(svgEl('text', { x: xe, y: yAt(l.endMag) - 4, 'font-size': 10, fill: '#fdba74', 'text-anchor': 'end', 'font-family': 'JetBrains Mono' },
+    fmt(fromSI('distLoad', l.endMag, state.unitSystem), 2)));
+}
+
+function drawMoment(svg, l, toX, beamY, unit) {
+  const x = toX(l.position);
+  const cw = l.magnitude > 0;
+  const r = 18;
+  const startA = cw ? Math.PI : 0;
+  const endA = cw ? 1.7 * Math.PI : 1.3 * Math.PI;
+  const start = { x: x + r * Math.cos(startA), y: beamY + r * Math.sin(startA) };
+  const end = { x: x + r * Math.cos(endA), y: beamY + r * Math.sin(endA) };
+  const sweep = cw ? 1 : 0;
+  svg.appendChild(svgEl('path', { d: 'M '+start.x+' '+start.y+' A '+r+' '+r+' 0 0 '+sweep+' '+end.x+' '+end.y, fill: 'none', stroke: '#a78bfa', 'stroke-width': 2 }));
+  svg.appendChild(svgEl('polygon', { points: end.x+','+end.y+' '+(end.x-5)+','+(end.y-4)+' '+(end.x+3)+','+(end.y+4), fill: '#a78bfa' }));
+  svg.appendChild(svgEl('text', { x: x, y: beamY - r - 6, 'text-anchor': 'middle', 'font-size': 11, fill: '#c4b5fd', 'font-family': 'JetBrains Mono' },
+    fmt(fromSI('moment', l.magnitude, state.unitSystem), 2) + ' ' + unit));
+}
+
+function drawDimensionLine(svg, toX, y, unit) {
+  const positions = Array.from(new Set([0, state.model.length].concat(state.model.supports.map((s) => s.position)))).sort((a, b) => a - b);
+  svg.appendChild(svgEl('line', { x1: toX(0), x2: toX(state.model.length), y1: y, y2: y, stroke: '#64748b' }));
+  for (const p of positions) {
+    svg.appendChild(svgEl('line', { x1: toX(p), x2: toX(p), y1: y - 6, y2: y + 6, stroke: '#64748b' }));
+    svg.appendChild(svgEl('text', { x: toX(p), y: y + 18, 'text-anchor': 'middle', 'font-size': 10, fill: '#94a3b8', 'font-family': 'JetBrains Mono' },
+      fromSI('length', p, state.unitSystem).toFixed(2)));
+  }
+  svg.appendChild(svgEl('text', { x: toX(state.model.length) + 8, y: y + 4, 'font-size': 10, fill: '#94a3b8' }, unit));
+}
+
+/* === Results panel === */
+
+function renderResults() {
+  const tabs = document.getElementById('results-tabs');
+  for (const btn of tabs.querySelectorAll('.tab-button')) {
+    btn.classList.toggle('active', btn.dataset.rtab === state.resultTab);
+  }
+  renderSummary();
+  const body = document.getElementById('results-body');
+  body.innerHTML = '';
+  if (!state.results) {
+    body.appendChild(el('div', { style: { padding: '16px', color: '#94a3b8', fontStyle: 'italic' } }, 'No results — fix errors and re-solve.'));
+    return;
+  }
+  if (state.resultTab === 'reactions') body.appendChild(renderReactionTable());
+  else if (state.resultTab === 'sfd') body.appendChild(renderChart(state.results.sfd, '#ef4444', 'V', labels(state.unitSystem).force, 'force'));
+  else if (state.resultTab === 'bmd') body.appendChild(renderChart(state.results.bmd, '#0ea5e9', 'M', labels(state.unitSystem).moment, 'moment'));
+  else if (state.resultTab === 'deflection') body.appendChild(renderChart(state.results.deflection, '#22c55e', 'δ', labels(state.unitSystem).deflection, 'deflection'));
+  else if (state.resultTab === 'stress') body.appendChild(renderStress());
+}
+
+function renderSummary() {
+  const root = document.getElementById('results-summary');
+  root.innerHTML = '';
+  const r = state.results;
+  if (!r) return;
+  const lbl = labels(state.unitSystem);
+  const items = [
+    { label: 'V max', value: fmt(fromSI('force', r.maxShear, state.unitSystem), 2), unit: lbl.force },
+    { label: 'M max', value: fmt(fromSI('moment', r.maxMoment, state.unitSystem), 2), unit: lbl.moment },
+    { label: 'M min', value: fmt(fromSI('moment', r.minMoment, state.unitSystem), 2), unit: lbl.moment },
+    { label: 'δ max', value: fmt(fromSI('deflection', r.maxDeflection, state.unitSystem), 2), unit: lbl.deflection },
+  ];
+  if (r.maxBendingStress !== undefined) items.push({ label: 'σ max', value: fmt(fromSI('stress', r.maxBendingStress, state.unitSystem), 2), unit: lbl.stress });
+  if (r.utilization !== undefined) items.push({ label: 'σ/fy', value: (r.utilization * 100).toFixed(1) + '%', unit: '', warn: r.utilization > 1 });
+  for (const it of items) {
+    root.appendChild(el('div', { className: 'panel summary-item' + (it.warn ? ' warn' : '') }, [
+      el('span', { className: 'label' }, it.label),
+      el('span', { className: 'value' }, it.value),
+      el('span', { className: 'unit' }, it.unit),
+    ]));
+  }
+  root.appendChild(el('div', { className: 'panel summary-item', style: { color: '#94a3b8', fontSize: '11px' } },
+    r.determinacy.classification + ' · solved via ' + r.determinacy.method));
+}
+
+function renderReactionTable() {
+  const lbl = labels(state.unitSystem);
+  const t = el('table', { className: 'reactions' });
+  t.appendChild(el('thead', null, el('tr', null, [
+    el('th', null, 'Support'), el('th', null, 'Position (' + lbl.length + ')'),
+    el('th', null, 'Fy (' + lbl.force + ')'), el('th', null, 'Fx (' + lbl.force + ')'),
+    el('th', null, 'Mz (' + lbl.moment + ')'),
+  ])));
+  const tb = el('tbody');
+  for (const r of state.results.reactions) {
+    tb.appendChild(el('tr', null, [
+      el('td', null, r.supportId),
+      el('td', null, fmt(fromSI('length', r.position, state.unitSystem), 3)),
+      el('td', { className: r.Fy >= 0 ? 'pos' : 'neg' }, fmt(fromSI('force', r.Fy, state.unitSystem), 3)),
+      el('td', null, r.Fx !== undefined ? fmt(fromSI('force', r.Fx, state.unitSystem), 3) : '—'),
+      el('td', null, r.Mz !== undefined ? fmt(fromSI('moment', r.Mz, state.unitSystem), 3) : '—'),
+    ]));
+  }
+  t.appendChild(tb);
+  return t;
+}
+
+function renderChart(data, color, label, yUnit, kind) {
+  const xLbl = labels(state.unitSystem).length;
+  const wrap = el('div', { style: { position: 'relative', width: '100%', height: '320px', padding: '8px' } });
+  const w = wrap.parentElement ? Math.max(400, wrap.parentElement.clientWidth - 16) : 700;
+  const h = 320;
+  const M = { left: 50, right: 20, top: 20, bottom: 40 };
+  const innerW = w - M.left - M.right;
+  const innerH = h - M.top - M.bottom;
+
+  const xConv = (v) => fromSI('length', v, state.unitSystem);
+  const yConv = (v) => fromSI(kind, v, state.unitSystem);
+  const tx = data.map((p) => ({ x: xConv(p.x), value: yConv(p.value) }));
+
+  const xMin = Math.min.apply(null, tx.map((p) => p.x));
+  const xMax = Math.max.apply(null, tx.map((p) => p.x));
+  const yMin = Math.min.apply(null, tx.map((p) => p.value));
+  const yMax = Math.max.apply(null, tx.map((p) => p.value));
+  const yLo = Math.min(0, yMin), yHi = Math.max(0, yMax);
+  const ySpan = (yHi - yLo) || 1;
+  const yPad = ySpan * 0.1;
+  const yLow = yLo - yPad, yHigh = yHi + yPad;
+
+  const sx = (x) => M.left + ((x - xMin) / Math.max(xMax - xMin, 1e-9)) * innerW;
+  const sy = (y) => M.top + ((yHigh - y) / (yHigh - yLow)) * innerH;
+  const yZero = sy(0);
+
+  const svg = svgEl('svg', { width: w, height: h, viewBox: '0 0 ' + w + ' ' + h, style: { display: 'block' } });
+
+  // Grid
+  for (let i = 0; i <= 5; i++) {
+    const yV = yLow + ((yHigh - yLow) * i) / 5;
+    const yPx = sy(yV);
+    svg.appendChild(svgEl('line', { x1: M.left, x2: M.left + innerW, y1: yPx, y2: yPx, stroke: 'rgba(255,255,255,0.06)' }));
+    svg.appendChild(svgEl('text', { x: M.left - 6, y: yPx + 4, 'text-anchor': 'end', 'font-size': 10, fill: '#94a3b8', 'font-family': 'JetBrains Mono' }, fmt(yV, 2)));
+  }
+  for (let i = 0; i <= 5; i++) {
+    const xV = xMin + ((xMax - xMin) * i) / 5;
+    const xPx = sx(xV);
+    svg.appendChild(svgEl('line', { x1: xPx, x2: xPx, y1: M.top, y2: M.top + innerH, stroke: 'rgba(255,255,255,0.06)' }));
+    svg.appendChild(svgEl('text', { x: xPx, y: M.top + innerH + 16, 'text-anchor': 'middle', 'font-size': 10, fill: '#94a3b8', 'font-family': 'JetBrains Mono' }, fmt(xV, 2)));
+  }
+
+  // Axis labels
+  svg.appendChild(svgEl('text', { x: M.left + innerW / 2, y: h - 6, 'text-anchor': 'middle', 'font-size': 11, fill: '#94a3b8' }, 'x (' + xLbl + ')'));
+  svg.appendChild(svgEl('text', {
+    x: 14, y: M.top + innerH / 2, 'text-anchor': 'middle', 'font-size': 11, fill: '#94a3b8',
+    transform: 'rotate(-90 14 ' + (M.top + innerH / 2) + ')',
+  }, label + ' (' + yUnit + ')'));
+
+  // Zero line
+  svg.appendChild(svgEl('line', { x1: M.left, x2: M.left + innerW, y1: yZero, y2: yZero, stroke: 'rgba(255,255,255,0.25)' }));
+
+  // Filled area
+  let pathD = 'M ' + sx(tx[0].x) + ' ' + yZero + ' ';
+  for (const p of tx) pathD += 'L ' + sx(p.x) + ' ' + sy(p.value) + ' ';
+  pathD += 'L ' + sx(tx[tx.length - 1].x) + ' ' + yZero + ' Z';
+  const grad = svgEl('linearGradient', { id: 'grad-' + kind, x1: '0', x2: '0', y1: '0', y2: '1' }, [
+    svgEl('stop', { offset: '0%', 'stop-color': color, 'stop-opacity': '0.6' }),
+    svgEl('stop', { offset: '100%', 'stop-color': color, 'stop-opacity': '0.05' }),
+  ]);
+  const defs = svgEl('defs', null, [grad]);
+  svg.appendChild(defs);
+  svg.appendChild(svgEl('path', { d: pathD, fill: 'url(#grad-' + kind + ')', stroke: 'none' }));
+
+  // Line
+  let lineD = '';
+  for (let i = 0; i < tx.length; i++) lineD += (i === 0 ? 'M ' : 'L ') + sx(tx[i].x) + ' ' + sy(tx[i].value) + ' ';
+  svg.appendChild(svgEl('path', { d: lineD, fill: 'none', stroke: color, 'stroke-width': 2 }));
+
+  // Hover crosshair + tooltip
+  const tooltip = el('div', { className: 'chart-tooltip', style: { display: 'none' } });
+  const cross = svgEl('line', { x1: 0, x2: 0, y1: M.top, y2: M.top + innerH, stroke: color, 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0 });
+  const dot = svgEl('circle', { cx: 0, cy: 0, r: 4, fill: color, stroke: 'white', 'stroke-width': 1.5, opacity: 0 });
+  svg.appendChild(cross);
+  svg.appendChild(dot);
+
+  svg.addEventListener('mousemove', (e) => {
+    const rect = svg.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const xV = xMin + ((px - M.left) / innerW) * (xMax - xMin);
+    if (xV < xMin || xV > xMax) return;
+    let best = tx[0], bestD = Infinity;
+    for (const p of tx) { const d = Math.abs(p.x - xV); if (d < bestD) { bestD = d; best = p; } }
+    const xPx = sx(best.x), yPx = sy(best.value);
+    cross.setAttribute('x1', xPx); cross.setAttribute('x2', xPx); cross.setAttribute('opacity', '1');
+    dot.setAttribute('cx', xPx); dot.setAttribute('cy', yPx); dot.setAttribute('opacity', '1');
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+    tooltip.style.top = (e.clientY - rect.top - 8) + 'px';
+    tooltip.innerHTML = 'x = ' + fmt(best.x, 3) + ' ' + xLbl + '<br>' + label + ' = ' + fmt(best.value, 3) + ' ' + yUnit;
+  });
+  svg.addEventListener('mouseleave', () => {
+    cross.setAttribute('opacity', '0'); dot.setAttribute('opacity', '0');
+    tooltip.style.display = 'none';
+  });
+
+  wrap.appendChild(svg);
+  wrap.appendChild(tooltip);
+  return wrap;
+}
+
+function renderStress() {
+  const r = state.results;
+  const lbl = labels(state.unitSystem);
+  const fy = state.model.material.fy;
+  const u = r.utilization;
+  const wrap = el('div');
+  const grid = el('div', { className: 'stress-grid' });
+  grid.appendChild(stressStat('Max bending stress σ', r.maxBendingStress !== undefined ? fmt(fromSI('stress', r.maxBendingStress, state.unitSystem), 3) : '—', lbl.stress));
+  grid.appendChild(stressStat('Max shear stress τ', r.maxShearStress !== undefined ? fmt(fromSI('stress', r.maxShearStress, state.unitSystem), 3) : '—', lbl.stress));
+  if (fy !== undefined) {
+    grid.appendChild(stressStat('Yield strength fy', fmt(fromSI('stress', fy, state.unitSystem), 3), lbl.stress));
+    grid.appendChild(stressStat('Utilization σ/fy', u !== undefined ? (u * 100).toFixed(1) + '%' : '—', '', u !== undefined && u > 1));
+  }
+  wrap.appendChild(grid);
+  if (u !== undefined && u > 1) {
+    wrap.appendChild(el('div', { className: 'stress-warn-banner' }, '⚠ Beam over-stressed (σ > fy). Increase section or reduce loads.'));
+  }
+  wrap.appendChild(el('div', { className: 'help-text', style: { padding: '8px' } },
+    'Stress from σ = M·c/I and τ ≈ k·V/A. c = max(yTop, yBot).'));
+  return wrap;
+}
+function stressStat(label, value, unit, warn) {
+  return el('div', { className: 'panel stress-stat' + (warn ? ' warn' : '') }, [
+    el('div', { className: 'label' }, label),
+    el('div', { className: 'value' }, [value, ' ', el('span', { className: 'unit' }, unit)]),
+  ]);
+}
+
+/* === Toolbar updates === */
+
+function renderToolbar() {
+  document.getElementById('btn-undo').disabled = state.history.length === 0;
+  document.getElementById('btn-redo').disabled = state.future.length === 0;
+  document.getElementById('units-select').value = state.unitSystem;
+  document.getElementById('btn-theme').textContent = state.theme === 'dark' ? '☾' : '☀';
+  const errBanner = document.getElementById('error-banner');
+  if (state.errors.length) { errBanner.textContent = state.errors[0]; errBanner.classList.remove('hidden'); }
+  else errBanner.classList.add('hidden');
+}
+
+function render() {
+  renderToolbar();
+  renderSidebar();
+  renderBeamCanvas();
+  renderResults();
+}
+
+/* ========================================================================
+ * EXPORTS & FILE I/O
+ * ======================================================================== */
+
+function downloadFile(name, content, mime) {
+  const blob = new Blob([content], { type: mime || 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+function resultsToCSV(r) {
+  const lines = [];
+  lines.push('# Beam Calculator Results — SI units');
+  lines.push('# Reactions');
+  lines.push('supportId,position(m),Fy(kN),Fx(kN),Mz(kN·m)');
+  for (const x of r.reactions) lines.push([x.supportId, x.position, x.Fy.toFixed(4), (x.Fx||0).toFixed(4), (x.Mz||0).toFixed(4)].join(','));
+  lines.push('# Summary');
+  lines.push('maxShear_kN,' + r.maxShear.toFixed(4));
+  lines.push('maxMoment_kNm,' + r.maxMoment.toFixed(4));
+  lines.push('minMoment_kNm,' + r.minMoment.toFixed(4));
+  lines.push('maxDeflection_mm,' + r.maxDeflection.toFixed(4));
+  if (r.maxBendingStress !== undefined) lines.push('maxBendingStress_MPa,' + r.maxBendingStress.toFixed(4));
+  lines.push('# SFD\nx(m),V(kN)');
+  for (const p of r.sfd) lines.push(p.x.toFixed(4) + ',' + p.value.toFixed(4));
+  lines.push('# BMD\nx(m),M(kN·m)');
+  for (const p of r.bmd) lines.push(p.x.toFixed(4) + ',' + p.value.toFixed(4));
+  lines.push('# Deflection\nx(m),v(mm)');
+  for (const p of r.deflection) lines.push(p.x.toFixed(4) + ',' + p.value.toFixed(4));
+  return lines.join('\n');
+}
+
+function exportPDF(model, r) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const rxnRows = r.reactions.map((x) =>
+    '<tr><td>' + x.supportId + '</td><td>' + x.position.toFixed(3) + '</td><td>' + x.Fy.toFixed(3) +
+    '</td><td>' + (x.Fx||0).toFixed(3) + '</td><td>' + (x.Mz||0).toFixed(3) + '</td></tr>').join('');
+  win.document.write(
+    '<html><head><title>Beam Analysis Report</title><style>' +
+    'body{font-family:system-ui,sans-serif;padding:24px;color:#111}h1{margin:0 0 8px}h2{margin:24px 0 8px;border-bottom:1px solid #aaa;padding-bottom:4px}' +
+    'table{border-collapse:collapse;margin:8px 0;width:100%}td,th{border:1px solid #999;padding:4px 8px;text-align:right;font-family:ui-monospace,monospace;font-size:12px}' +
+    'th{background:#f0f0f0}.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 16px;font-family:ui-monospace,monospace;font-size:13px}' +
+    '</style></head><body>' +
+    '<h1>Beam Analysis Report</h1><div>Generated: ' + new Date().toLocaleString() + '</div>' +
+    '<h2>Beam Configuration</h2><div class="summary">' +
+    '<div>Length: ' + model.length + ' m</div>' +
+    '<div>Material: ' + model.material.name + ' (E = ' + model.material.E + ' MPa)</div>' +
+    '<div>Section: ' + (model.section.name || 'custom') + ' (I = ' + model.section.I.toExponential(3) + ' m⁴)</div>' +
+    '<div>Supports: ' + model.supports.length + '</div>' +
+    '<div>Loads: ' + model.loads.length + '</div>' +
+    '<div>Determinacy: ' + r.determinacy.classification + '</div></div>' +
+    '<h2>Reactions</h2><table><tr><th>Support</th><th>x (m)</th><th>Fy (kN)</th><th>Fx (kN)</th><th>Mz (kN·m)</th></tr>' + rxnRows + '</table>' +
+    '<h2>Result Summary</h2><div class="summary">' +
+    '<div>Max Shear: ' + r.maxShear.toFixed(3) + ' kN</div>' +
+    '<div>Max Moment: ' + r.maxMoment.toFixed(3) + ' kN·m</div>' +
+    '<div>Min Moment: ' + r.minMoment.toFixed(3) + ' kN·m</div>' +
+    '<div>Max Deflection: ' + r.maxDeflection.toFixed(3) + ' mm</div>' +
+    (r.maxBendingStress !== undefined ? '<div>Max Bending Stress: ' + r.maxBendingStress.toFixed(2) + ' MPa</div>' : '') +
+    (r.utilization !== undefined ? '<div>Utilization (σ/fy): ' + (r.utilization * 100).toFixed(1) + ' %</div>' : '') +
+    '</div><p style="margin-top:24px;color:#555;font-size:11px">Generated by the Beam Calculator. Verify all design values independently.</p>' +
+    '</body></html>'
+  );
+  win.document.close();
+  setTimeout(() => win.print(), 300);
+}
+
+/* ========================================================================
+ * EVENT WIRING
+ * ======================================================================== */
+
+document.getElementById('sidebar-tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('button[data-tab]');
+  if (!t) return;
+  state.sidebarTab = t.dataset.tab; renderSidebar();
+});
+document.getElementById('results-tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('button[data-rtab]');
+  if (!t) return;
+  state.resultTab = t.dataset.rtab; renderResults();
+});
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('units-select').addEventListener('change', (e) => {
+  state.unitSystem = e.target.value; render();
+});
+document.getElementById('btn-theme').addEventListener('click', () => {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  if (state.theme === 'light') {
+    document.body.style.background = '#f8fafc';
+    document.body.style.color = '#0f172a';
+  } else {
+    document.body.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+    document.body.style.color = '#e2e8f0';
+  }
+  render();
+});
+document.getElementById('btn-solve').addEventListener('click', () => { runSolve(); render(); });
+document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const txt = await f.text();
+  try { setModel(JSON.parse(txt)); } catch (err) { state.errors = ['Invalid JSON: ' + err.message]; render(); }
+  e.target.value = '';
+});
+document.getElementById('btn-save').addEventListener('click', () => {
+  downloadFile('beam-model.json', JSON.stringify(state.model, null, 2), 'application/json');
+});
+document.getElementById('btn-csv').addEventListener('click', () => {
+  if (state.results) downloadFile('beam-results.csv', resultsToCSV(state.results), 'text/csv');
+});
+document.getElementById('btn-pdf').addEventListener('click', () => {
+  if (state.results) exportPDF(state.model, state.results);
+});
+
+window.addEventListener('keydown', (e) => {
+  const meta = e.ctrlKey || e.metaKey;
+  if (!meta) return;
+  if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+  else if (e.key === 's') { e.preventDefault(); downloadFile('beam-model.json', JSON.stringify(state.model, null, 2), 'application/json'); }
+  else if (e.key === 'Enter') { e.preventDefault(); runSolve(); render(); }
+});
+
+window.addEventListener('resize', () => { renderBeamCanvas(); renderResults(); });
+
+/* === Boot === */
+runSolve();
+render();
+</script>
+</body>
+</html>
