@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-bg-base text-slate-200 font-sans;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background-attachment: fixed;
+  }
+
+  :root.light body {
+    background: #f8fafc;
+    @apply text-slate-900;
+  }
+
+  input, select, textarea {
+    @apply outline-none;
+  }
+
+  button {
+    @apply outline-none;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-slate-900/60 backdrop-blur border border-slate-700/60 rounded-lg;
+  }
+
+  :root.light .panel {
+    @apply bg-white border-slate-200;
+  }
+
+  .field-label {
+    @apply text-xs uppercase tracking-wider text-slate-400 mb-1 font-medium;
+  }
+
+  :root.light .field-label {
+    @apply text-slate-600;
+  }
+
+  .field-input {
+    @apply w-full px-3 py-1.5 rounded bg-slate-800/70 border border-slate-700 text-slate-100
+           focus:border-accent focus:ring-1 focus:ring-accent/40 transition font-mono text-sm;
+  }
+
+  :root.light .field-input {
+    @apply bg-white border-slate-300 text-slate-900;
+  }
+
+  .btn {
+    @apply px-3 py-1.5 rounded font-medium text-sm transition active:scale-95;
+  }
+
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-hover text-white;
+  }
+
+  .btn-ghost {
+    @apply bg-slate-800/60 hover:bg-slate-700/80 text-slate-200 border border-slate-700;
+  }
+
+  :root.light .btn-ghost {
+    @apply bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300;
+  }
+
+  .btn-danger {
+    @apply bg-red-600/80 hover:bg-red-600 text-white;
+  }
+
+  .tab-button {
+    @apply px-3 py-1.5 text-sm font-medium border-b-2 border-transparent text-slate-400
+           hover:text-slate-100 transition;
+  }
+
+  .tab-button-active {
+    @apply text-accent border-accent;
+  }
+
+  .num {
+    @apply font-mono;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
