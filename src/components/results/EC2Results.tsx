@@ -70,10 +70,10 @@ export function EC2Results() {
               <Stat label="As_min" value={fmt(d.As_min, 0)} unit="mm²" />
               <Stat label="As_max" value={fmt(d.As_max, 0)} unit="mm²" />
               <Stat label="As prov." value={fmt(concrete.As, 0)} unit="mm²"
-                warn={concrete.As < d.As_req} />
+                warn={concrete.As > 0 && concrete.As < d.As_req} />
               <Stat label="As_req / As_prov"
                 value={Number.isFinite(d.utilization)
-                  ? (d.utilization * 100).toFixed(1) + '%' : '∞'}
+                  ? (d.utilization * 100).toFixed(1) + '%' : '—'}
                 unit="" warn={d.utilization > 1} />
             </Grid>
             <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
@@ -123,6 +123,11 @@ export function EC2Results() {
               <Stat label="l/d allow" value={fmt(d.ld_allow, 1)} unit="—" />
               <Stat label="l/d basic" value={fmt(d.ld_basic, 1)} unit="—" />
             </Grid>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {d.used_provided_As
+                ? 'Stress modifier uses As provided.'
+                : `Stress modifier uses trial As = As_req × ${(d.As_prov_used / Math.max(d.As_req, 1e-9)).toFixed(2)}.`}
+            </div>
             <CheckRow label="l/d ≤ allowable" actual={d.ld_actual}
               limit={d.ld_allow} pass={d.pass_ld} unit="—" />
           </Section>

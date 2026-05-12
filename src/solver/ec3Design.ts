@@ -348,7 +348,11 @@ export function designSteelBeam(args: EC3DesignArgs): SteelDesignResult | null {
     utilV,
     pass_M,
     pass_V,
-    feasible: pass_M && pass_V && !shearBucklingFlag,
+    // shearBucklingFlag means "an EN 1993-1-5 check is required" — not a
+    // failure on its own. The web may still be adequate after that check;
+    // we surface it as a warning and leave overall feasibility to the
+    // M and V utilisation ratios.
+    feasible: pass_M && pass_V,
     warnings,
   };
 }

@@ -50,6 +50,37 @@ function peakAbs(diagram: DiagramPoint[]): number {
   return peak;
 }
 
+/**
+ * Span used for the l/d deflection check (Cl. 7.4.2). For a cantilever
+ * (one fixed support, nothing else) it is the cantilever length; for a
+ * beam with multiple supports it is the longest gap between adjacent
+ * supports; otherwise we fall back to the total beam length and warn.
+ *
+ * Returned in mm.
+ */
+function effectiveSpanForLd(model: BeamModel, warnings: string[]): number {
+  const totalMm = model.length * 1000;
+  const supports = [...model.supports].sort((a, b) => a.position - b.position);
+  if (supports.length === 1 && supports[0].type === 'fixed') {
+    // Cantilever from the fixed end to the free end.
+    const fixedPos = supports[0].position;
+    const tip = fixedPos < model.length / 2 ? model.length : 0;
+    return Math.abs(tip - fixedPos) * 1000;
+  }
+  if (supports.length >= 2) {
+    let maxGap = 0;
+    for (let i = 1; i < supports.length; i++) {
+      const gap = supports[i].position - supports[i - 1].position;
+      if (gap > maxGap) maxGap = gap;
+    }
+    if (maxGap > 0) return maxGap * 1000;
+  }
+  warnings.push(
+    'l/d check: could not infer a span from the supports — using the total beam length. Set K_sys appropriately or split into separate spans.',
+  );
+  return totalMm;
+}
+
 // =====================================================================
 // Main entry
 // =====================================================================
@@ -251,8 +282,20 @@ export function designConcreteBeam(args: EC2DesignArgs): ConcreteDesignResult | 
   const dFtd_kN = Number.isFinite(cot_theta) ? 0.5 * V_Ed_kN * cot_theta : 0;
 
   // ---------- §7 Deflection l/d (Cl. 7.4.2 + Tbl NA.5) ----------
+  // L for the span/depth check is the **relevant span**, not necessarily the
+  // total beam length. For a cantilever (one fixed end), it is the cantilever
+  // length. For a beam with two or more supports, it is the longest gap
+  // between adjacent supports. For other configurations we fall back to the
+  // total length and surface a warning.
+  const L_eff_mm = effectiveSpanForLd(model, warnings);
+
+  const provided_As = rebar?.As && rebar.As > 0 ? rebar.As : 0;
   const As_prov_factor = Math.max(1.0, cfg.As_prov_factor);
-  const As_prov_used = As_req * As_prov_factor;
+  // Use the user-set provided steel for the deflection/crack checks when
+  // available; otherwise fall back to a trial value derived from the
+  // required steel times an "assumed over-provision" factor.
+  const As_prov_used =
+    provided_As > 0 ? provided_As : Math.max(As_req, 1e-6) * As_prov_factor;
   const rho0 = 1e-3 * Math.sqrt(fck);
   const rho = As_req / (b * d);
   const rho2 = As2_req / (b * d);
@@ -274,9 +317,13 @@ export function designConcreteBeam(args: EC2DesignArgs): ConcreteDesignResult | 
         (sqfck / 12) * Math.sqrt(Math.max(rho2, 0) / rho0));
   }
   // SG NA: stress modifier ≤ 1.5; abs cap 40·K_sys.
-  const mod_stress = Math.min((500 * As_prov_used) / (fyk * As_req || 1), 1.5);
+  const stress_denom = fyk * As_req;
+  const mod_stress =
+    stress_denom > 0
+      ? Math.min((500 * As_prov_used) / stress_denom, 1.5)
+      : 1.5;
   const ld_allow = Math.min(ld_basic * mod_stress, 40 * K_sys);
-  const ld_actual = (model.length * 1000) / d;
+  const ld_actual = L_eff_mm / d;
   const pass_ld = ld_actual <= ld_allow;
 
   // ---------- §8 Crack control (Cl. 7.3.4) ----------
@@ -288,30 +335,42 @@ export function designConcreteBeam(args: EC2DesignArgs): ConcreteDesignResult | 
   // Effective tension zone (Exp 7.10): hc,ef = min(2.5(h−d), (h−x)/3, h/2)
   const hc_ef = Math.min(2.5 * (h - d), (h - xc) / 3, h / 2);
   const Ac_eff = b * hc_ef;
-  const rho_p_eff = As_prov_used / Math.max(Ac_eff, 1);
   const alpha_e = Es / Ecm;
 
-  // Steel stress under quasi-permanent (approx z = 0.85d at SLS).
+  // The crack-control computations need a non-zero As. If neither a
+  // user-set provided area nor a computed required area is available we
+  // skip the crack check rather than emitting nonsense numbers.
+  const crackEvaluable = As_prov_used > 0 && Ac_eff > 0 && M_qp > 0;
+  const rho_p_eff = crackEvaluable ? As_prov_used / Ac_eff : 0;
   const z_sls = 0.85 * d;
-  const sigma_s_qp = M_qp / Math.max(As_prov_used * z_sls, 1);
+  const sigma_s_qp = crackEvaluable ? M_qp / (As_prov_used * z_sls) : 0;
 
   const kt = cfg.kt;
   const fct_eff = fctm;
-  const stiffening = (kt * (fct_eff / Math.max(rho_p_eff, 1e-12)) * (1 + alpha_e * rho_p_eff));
-  const eps_diff = Math.max(
-    (sigma_s_qp - stiffening) / Es,
-    (0.6 * sigma_s_qp) / Es,
-  );
-
-  // Max crack spacing (Exp 7.11): SG NA k3=3.4, k4=0.425; k1=0.8 (high-bond), k2=0.5 (bending).
-  const k1c = 0.8;
-  const k2c = 0.5;
-  const k3c = 3.4;
-  const k4c = 0.425;
-  const sr_max =
-    k3c * cnom + (k1c * k2c * k4c * phi_bar) / Math.max(rho_p_eff, 1e-12);
-  const wk = sr_max * eps_diff;
-  const pass_crack = wk <= cfg.wmax;
+  let eps_diff = 0;
+  let sr_max = 0;
+  let wk = 0;
+  if (crackEvaluable) {
+    const stiffening =
+      kt * (fct_eff / rho_p_eff) * (1 + alpha_e * rho_p_eff);
+    eps_diff = Math.max(
+      (sigma_s_qp - stiffening) / Es,
+      (0.6 * sigma_s_qp) / Es,
+    );
+    // Max crack spacing (Exp 7.11): SG NA k3=3.4, k4=0.425;
+    // k1=0.8 (high-bond), k2=0.5 (bending).
+    const k1c = 0.8;
+    const k2c = 0.5;
+    const k3c = 3.4;
+    const k4c = 0.425;
+    sr_max = k3c * cnom + (k1c * k2c * k4c * phi_bar) / rho_p_eff;
+    wk = sr_max * eps_diff;
+  } else {
+    warnings.push(
+      'Crack check skipped: provide As (or non-zero M_qp) to compute wk.',
+    );
+  }
+  const pass_crack = crackEvaluable ? wk <= cfg.wmax : true;
 
   // Min steel for crack control (Cl. 7.3.2, Exp 7.1)
   const kc_crack = 0.4; // pure bending, rect
@@ -344,15 +403,20 @@ export function designConcreteBeam(args: EC2DesignArgs): ConcreteDesignResult | 
   const phi_mandrel_min = phi_bar <= 16 ? 4 * phi_bar : 7 * phi_bar;
 
   // ---------- Overall ----------
-  const provided = rebar?.As && rebar.As > 0 ? rebar.As : 0;
-  const utilization = provided > 0 ? As_req / provided : Number.POSITIVE_INFINITY;
+  const utilization =
+    provided_As > 0 ? As_req / provided_As : Number.POSITIVE_INFINITY;
+  const provided_ok = provided_As > 0 && As_req <= provided_As;
+  const used_provided_As = provided_As > 0;
+
+  const sigma_check_pass =
+    !crackEvaluable || sigma_s_qp <= sigma_s_lim_qp;
 
   const feasible =
     bendingFeasible &&
     shearFeasible &&
     pass_ld &&
     pass_crack &&
-    sigma_s_qp <= sigma_s_lim_qp;
+    sigma_check_pass;
 
   return {
     fcd,
@@ -427,6 +491,8 @@ export function designConcreteBeam(args: EC2DesignArgs): ConcreteDesignResult | 
     phi_mandrel_min,
 
     feasible,
+    provided_ok,
+    used_provided_As,
     utilization,
     warnings,
   };
@@ -457,7 +523,11 @@ function emptyResult(cfg: ConcreteDesignInput, warnings: string[]): ConcreteDesi
     As_min_crack: 0,
     sigma_c_lim_char: 0, sigma_s_lim_char: 0, sigma_s_lim_qp: 0,
     s_clear_min: 0, fbd: 0, lb_rqd: 0, lbd: 0, l0: 0, phi_mandrel_min: 0,
-    feasible: false, utilization: 0, warnings,
+    feasible: false,
+    provided_ok: false,
+    used_provided_As: false,
+    utilization: 0,
+    warnings,
   };
 }
 

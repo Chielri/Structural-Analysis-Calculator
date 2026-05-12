@@ -242,7 +242,12 @@ export interface ConcreteDesignResult {
   phi_mandrel_min: number;  // mm
 
   // Overall flags
+  /** Design pipeline can deliver a code-compliant section as designed (bending + shear + l/d + crack with the trial or provided As). */
   feasible: boolean;
+  /** True when the user-provided As satisfies As_req. NaN-clean. */
+  provided_ok: boolean;
+  /** Indicates whether l/d / crack used the user-provided As (true) or a trial value (false). */
+  used_provided_As: boolean;
   utilization: number;      // As_req / As_prov (informational)
   warnings: string[];
 }

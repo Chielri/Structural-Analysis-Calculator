@@ -234,3 +234,166 @@ describe('EC2 + SG NA — 300×600 beam', () => {
     expect(r.phi_mandrel_min).toBeCloseTo(7 * 20, 0); // 20 mm bar → 7φ
   });
 });
+
+// =====================================================================
+// EC2 — failure paths
+// =====================================================================
+describe('EC2 — failure paths', () => {
+  const baseModel = (M_kNm: number, V_kN = 100): BeamModel => ({
+    length: 7.5,
+    supports: [
+      { id: 's1', type: 'pin', position: 0 },
+      { id: 's2', type: 'roller', position: 7.5 },
+    ],
+    loads: [],
+    hinges: [],
+    section: { I: (0.3 * 0.6 ** 3) / 12, A: 0.3 * 0.6, b: 0.3, d: 0.6 },
+    material: { name: 'C30/37', E: 33000, fy: 30, density: 2400, isConcrete: true, fck: 30 },
+    concreteDesign: {
+      ...DEFAULT_CONCRETE_DESIGN,
+      ulsFactor: 1.0,
+      M_Ed_kNm: M_kNm,
+      V_Ed_kN: V_kN,
+      M_qp_kNm: M_kNm * 0.6,
+    },
+  });
+
+  test('K > Klim → doubly reinforced and reports As2_req > 0', () => {
+    // 300×600 C30, M = 800 kNm pushes K above 0.207 (Klim @ δ=1).
+    const model = baseModel(800);
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 3.75, value: 800 }, { x: 7.5, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 100 }, { x: 7.5, value: -100 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    expect(r.K).toBeGreaterThan(r.K_lim);
+    expect(r.doublyReinforced).toBe(true);
+    expect(r.As2_req).toBeGreaterThan(0);
+  });
+
+  test('VEd above strut crushing limit → shearFeasible = false', () => {
+    // 2500 kN on a 300×600 — guaranteed to break sin2θ > 1.
+    const model = baseModel(100, 2500);
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 3.75, value: 100 }, { x: 7.5, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 2500 }, { x: 7.5, value: -2500 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    expect(r.shearFeasible).toBe(false);
+    expect(r.feasible).toBe(false);
+  });
+
+  test('Cantilever: l/d uses cantilever length, not total beam length', () => {
+    const model: BeamModel = {
+      length: 4,
+      supports: [{ id: 's1', type: 'fixed', position: 0 }],
+      loads: [],
+      hinges: [],
+      section: { I: (0.3 * 0.5 ** 3) / 12, A: 0.3 * 0.5, b: 0.3, d: 0.5 },
+      material: { name: 'C30/37', E: 33000, fy: 30, density: 2400, isConcrete: true, fck: 30 },
+      concreteDesign: {
+        ...DEFAULT_CONCRETE_DESIGN,
+        ulsFactor: 1.0,
+        M_Ed_kNm: 80,
+        V_Ed_kN: 40,
+        M_qp_kNm: 50,
+        K_sys: 0.4, // cantilever
+      },
+    };
+    const bmd: DiagramPoint[] = [{ x: 0, value: -80 }, { x: 4, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 40 }, { x: 4, value: 0 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    // d = 500 − 35 − 10 − 10 = 445 mm; L_eff = 4000 mm → l/d ≈ 8.99
+    expect(r.ld_actual).toBeCloseTo(4000 / 445, 2);
+  });
+
+  test('Multi-support: l/d uses the longest span between adjacent supports', () => {
+    const model: BeamModel = {
+      length: 12,
+      supports: [
+        { id: 's1', type: 'pin', position: 0 },
+        { id: 's2', type: 'roller', position: 4 },
+        { id: 's3', type: 'roller', position: 12 }, // longest span = 8 m
+      ],
+      loads: [],
+      hinges: [],
+      section: { I: (0.3 * 0.6 ** 3) / 12, A: 0.3 * 0.6, b: 0.3, d: 0.6 },
+      material: { name: 'C30/37', E: 33000, fy: 30, density: 2400, isConcrete: true, fck: 30 },
+      concreteDesign: {
+        ...DEFAULT_CONCRETE_DESIGN,
+        ulsFactor: 1.0, M_Ed_kNm: 100, V_Ed_kN: 60, M_qp_kNm: 70,
+      },
+    };
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 8, value: 100 }, { x: 12, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 60 }, { x: 12, value: -60 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    // d = 600 − 35 − 10 − 10 = 545 mm; longest gap = 8000 mm.
+    expect(r.ld_actual).toBeCloseTo(8000 / 545, 3);
+  });
+
+  test('Provided As ≥ As_req → provided_ok = true, utilisation ≤ 1', () => {
+    const model = baseModel(200);
+    model.concrete = { ...DEFAULT_CONCRETE_INPUT, As: 5000 };
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 3.75, value: 200 }, { x: 7.5, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 100 }, { x: 7.5, value: -100 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    expect(r.provided_ok).toBe(true);
+    expect(r.used_provided_As).toBe(true);
+    expect(r.utilization).toBeLessThanOrEqual(1);
+  });
+
+  test('No provided As → engine still runs and falls back to trial As', () => {
+    const model = baseModel(200);
+    // No `concrete` field at all.
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 3.75, value: 200 }, { x: 7.5, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 100 }, { x: 7.5, value: -100 }];
+    const r = designConcreteBeam({ model, bmd, sfd })!;
+    expect(r.used_provided_As).toBe(false);
+    expect(r.provided_ok).toBe(false);
+    expect(Number.isFinite(r.wk)).toBe(true);
+  });
+});
+
+// =====================================================================
+// EC3 — additional checks
+// =====================================================================
+describe('EC3 — LTB pinning and shear-buckling-flag behaviour', () => {
+  const fy = 275;
+  const E = 210000;
+  const G = 81000;
+
+  test('Pinned λ̄LT ≈ 1.4 and χLT ≈ 0.43 for the UB worked example', () => {
+    const L = 8000;
+    const Mcr = McrSimple(UB457, L, E, G, 1.13);
+    const lam = lambdaLTbar(UB457.Wpl_y, fy, Mcr);
+    const chi = chiLTrolled(lam, 'c');
+    // Within ±5% of the values reported by the .py reference and a
+    // hand-check of eq 6.57.
+    expect(lam).toBeGreaterThan(1.35);
+    expect(lam).toBeLessThan(1.55);
+    expect(chi).toBeGreaterThan(0.38);
+    expect(chi).toBeLessThan(0.48);
+  });
+
+  test('Shear-buckling flag is a warning, not a feasibility kill', () => {
+    // Use a thin-webbed pseudo-section to force hw/tw > 72ε.
+    const thin: SteelISection = { ...UB457, tw: 4.0, h: 700 };
+    const model: BeamModel = {
+      length: 8,
+      supports: [
+        { id: 's1', type: 'pin', position: 0 },
+        { id: 's2', type: 'roller', position: 8 },
+      ],
+      loads: [],
+      hinges: [],
+      section: { I: thin.Iy / 1e12, A: thin.A / 1e6, d: thin.h / 1000, b: thin.tw / 1000, iSection: thin },
+      material: { name: 'S275', E, G, fy, isSteel: true },
+      steelDesign: { ...DEFAULT_STEEL_DESIGN, L_unrestrained_m: 0, ltbCheck: false },
+    };
+    const bmd: DiagramPoint[] = [{ x: 0, value: 0 }, { x: 4, value: 50 }, { x: 8, value: 0 }];
+    const sfd: DiagramPoint[] = [{ x: 0, value: 25 }, { x: 8, value: -25 }];
+    const r = designSteelBeam({ model, bmd, sfd })!;
+    expect(r.shearBucklingFlag).toBe(true);
+    // Demands are tiny — utilisation passes; feasibility should *not* be
+    // dragged down by the shear-buckling-required flag.
+    expect(r.pass_M).toBe(true);
+    expect(r.pass_V).toBe(true);
+    expect(r.feasible).toBe(true);
+  });
+});
