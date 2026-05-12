@@ -14,6 +14,7 @@ import { MATERIALS } from '../../data/materialLibrary';
 import { Field, NumberInput, Select } from '../ui/Field';
 import { fromSI_I, labels, toSI_I } from '../../utils/units';
 import { ConcreteInput } from './ConcreteInput';
+import { ConcreteDesignInput } from './ConcreteDesignInput';
 
 type Tab = 'library' | 'custom' | 'rectangle' | 'circle' | 'pipe';
 
@@ -166,6 +167,7 @@ export function SectionInput() {
         <div>A = {(section.A ?? 0).toExponential(3)} {lbl.length}²</div>
       </div>
 
+      <ConcreteDesignInput />
       <ConcreteInput />
     </div>
   );

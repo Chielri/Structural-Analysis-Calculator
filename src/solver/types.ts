@@ -8,6 +8,7 @@ export interface BeamModel {
   material: MaterialProps;
   selfWeight?: boolean;
   concrete?: ConcreteDeflectionInput;
+  concreteDesign?: ConcreteDesignInput;
 }
 
 // === SUPPORTS ===
@@ -101,6 +102,38 @@ export interface ConcreteDeflectionInput {
   instMomentRatio?: number;    // defaults to 1.0
 }
 
+// === EC2 FLEXURAL DESIGN INPUTS (Cl. 6.1) ===
+export interface ConcreteDesignInput {
+  /** Direct ULS moment in N·mm. If 0/undefined, peak |M| from BMD × ulsFactor is used. */
+  M_Ed?: number;
+  /** Multiplier on peak SLS moment to estimate M_Ed (used only when M_Ed not supplied). */
+  ulsFactor: number;
+  fyk: number;        // characteristic steel yield (MPa)
+  gamma_c: number;    // concrete partial factor (typ. 1.5)
+  gamma_s: number;    // steel partial factor (typ. 1.15)
+  alpha_cc: number;   // long-term effects coefficient (0.85 or 1.0)
+  delta: number;      // moment redistribution factor (0.7–1.0)
+}
+
+export interface ConcreteDesignResult {
+  M_Ed: number;
+  fcd: number;
+  fyd: number;
+  K: number;
+  K_lim: number;
+  z: number;          // lever arm (mm)
+  x_over_d_lim: number;
+  As_req: number;     // mm² tension steel required
+  As_prime_req: number; // mm² compression steel required (0 if singly reinforced)
+  As_min: number;
+  As_max: number;
+  doublyReinforced: boolean;
+  compSteelYielding: boolean;
+  feasible: boolean;
+  utilization: number; // As_req / As_provided
+  warnings: string[];
+}
+
 // === RESULTS ===
 export interface AnalysisResults {
   reactions: ReactionResult[];
@@ -118,6 +151,7 @@ export interface AnalysisResults {
   determinacy: DeterminacyInfo;
   warnings: string[];
   ec2?: EC2DeflectionResult;
+  ec2Design?: ConcreteDesignResult;
 }
 
 // === EC2 RESULTS ===

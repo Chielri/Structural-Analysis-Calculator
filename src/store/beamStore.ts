@@ -3,6 +3,7 @@ import type {
   AnalysisResults,
   BeamModel,
   ConcreteDeflectionInput,
+  ConcreteDesignInput,
   Load,
   Support,
   Hinge,
@@ -12,6 +13,7 @@ import { makeId } from '../solver/utils';
 import { DEFAULT_MATERIAL } from '../data/materialLibrary';
 import { DEFAULT_SECTION } from '../data/sectionLibrary';
 import { DEFAULT_CONCRETE_INPUT } from '../solver/ec2Deflection';
+import { DEFAULT_CONCRETE_DESIGN } from '../solver/ec2Design';
 import type { UnitSystem } from '../utils/units';
 
 export type Theme = 'dark' | 'light';
@@ -47,6 +49,8 @@ export interface BeamState {
   setSection(section: BeamModel['section']): void;
   setMaterial(material: BeamModel['material']): void;
   setConcreteInput(patch: Partial<ConcreteDeflectionInput>): void;
+  setConcreteDesign(patch: Partial<ConcreteDesignInput>): void;
+  applyDesignedRebar(): void;
   toggleSelfWeight(): void;
 
   runSolve(): void;
@@ -281,8 +285,10 @@ export const useBeamStore = create<BeamState>((set, get) => ({
     m.material = material;
     if (material.isConcrete) {
       if (!m.concrete) m.concrete = { ...DEFAULT_CONCRETE_INPUT };
+      if (!m.concreteDesign) m.concreteDesign = { ...DEFAULT_CONCRETE_DESIGN };
     } else {
       delete m.concrete;
+      delete m.concreteDesign;
     }
     get().setModel(m);
   },
@@ -290,6 +296,24 @@ export const useBeamStore = create<BeamState>((set, get) => ({
     const m = deepClone(get().model);
     const base = m.concrete ?? { ...DEFAULT_CONCRETE_INPUT };
     m.concrete = { ...base, ...patch };
+    get().setModel(m);
+  },
+  setConcreteDesign(patch) {
+    const m = deepClone(get().model);
+    const base = m.concreteDesign ?? { ...DEFAULT_CONCRETE_DESIGN };
+    m.concreteDesign = { ...base, ...patch };
+    get().setModel(m);
+  },
+  applyDesignedRebar() {
+    const r = get().results;
+    if (!r?.ec2Design) return;
+    const m = deepClone(get().model);
+    const base = m.concrete ?? { ...DEFAULT_CONCRETE_INPUT };
+    m.concrete = {
+      ...base,
+      As: Math.ceil(r.ec2Design.As_req),
+      As_prime: Math.ceil(r.ec2Design.As_prime_req),
+    };
     get().setModel(m);
   },
   toggleSelfWeight() {

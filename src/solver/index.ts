@@ -6,6 +6,7 @@ import { buildBMD } from './bendingMoment';
 import { buildDeflection } from './deflection';
 import { bendingStress, extremeFiberC, shearStress } from './stress';
 import { computeEC2Deflection } from './ec2Deflection';
+import { designConcreteFlexure } from './ec2Design';
 
 export * from './types';
 export { classifyBeam } from './reactions';
@@ -96,6 +97,13 @@ export function solve(model: BeamModel): AnalysisResults {
       ? maxBendingStress / model.material.fy
       : undefined;
 
+  const ec2Design = designConcreteFlexure({ model, bmd }) ?? undefined;
+  if (ec2Design) {
+    if (!ec2Design.feasible)
+      warnings.push('EC2 6.1: Flexural design infeasible — increase section depth.');
+    for (const w of ec2Design.warnings) warnings.push('EC2 design: ' + w);
+  }
+
   const ec2 = computeEC2Deflection({ model, bmd }) ?? undefined;
   if (ec2) {
     if (!ec2.pass_L250)
@@ -125,5 +133,6 @@ export function solve(model: BeamModel): AnalysisResults {
     determinacy: { degree: cls.degree, classification: cls.classification, method },
     warnings,
     ec2,
+    ec2Design,
   };
 }

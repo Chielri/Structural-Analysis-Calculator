@@ -10,6 +10,7 @@ export function EC2Results() {
   const r = useBeamStore((s) => s.results);
   const concrete = useBeamStore((s) => s.model.concrete);
   const material = useBeamStore((s) => s.model.material);
+  const applyDesigned = useBeamStore((s) => s.applyDesignedRebar);
   if (!r) return null;
   if (!material.isConcrete) {
     return (
@@ -36,8 +37,80 @@ export function EC2Results() {
     );
   }
 
+  const design = r.ec2Design;
+
   return (
     <div className="space-y-4 p-2 font-mono text-sm">
+      {design && (
+        <Section title="Flexural design (Cl. 6.1)">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="M_Ed" value={fmt(design.M_Ed / 1e6, 2)} unit="kN·m" />
+            <Stat label="fcd" value={fmt(design.fcd, 2)} unit="MPa" />
+            <Stat label="fyd" value={fmt(design.fyd, 2)} unit="MPa" />
+            <Stat
+              label="K / K_lim"
+              value={`${fmt(design.K, 3)} / ${fmt(design.K_lim, 3)}`}
+              unit="—"
+              warn={design.K > design.K_lim}
+            />
+            <Stat label="z" value={fmt(design.z, 1)} unit="mm" />
+            <Stat
+              label="x/d limit"
+              value={fmt(design.x_over_d_lim, 3)}
+              unit="—"
+            />
+            <Stat
+              label="As required"
+              value={fmt(design.As_req, 0)}
+              unit="mm²"
+              warn={!design.feasible || design.utilization > 1}
+            />
+            <Stat
+              label="A's required"
+              value={fmt(design.As_prime_req, 0)}
+              unit="mm²"
+              warn={design.doublyReinforced && !design.compSteelYielding}
+            />
+            <Stat label="As,min" value={fmt(design.As_min, 0)} unit="mm²" />
+            <Stat label="As,max" value={fmt(design.As_max, 0)} unit="mm²" />
+            <Stat
+              label="As prov."
+              value={fmt(concrete.As, 0)}
+              unit="mm²"
+              warn={concrete.As < design.As_req}
+            />
+            <Stat
+              label="As_req / As_prov"
+              value={
+                Number.isFinite(design.utilization)
+                  ? (design.utilization * 100).toFixed(1) + '%'
+                  : '∞'
+              }
+              unit=""
+              warn={design.utilization > 1}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+            <div className="text-[11px] text-slate-400">
+              {design.doublyReinforced
+                ? "K > K_lim → doubly reinforced (compression steel required)."
+                : 'K ≤ K_lim → singly reinforced.'}
+              {design.doublyReinforced && !design.compSteelYielding
+                ? " ⚠ Compression steel does not reach yield — section is depth-limited."
+                : ''}
+            </div>
+            <button
+              className="btn btn-primary text-xs"
+              onClick={applyDesigned}
+              disabled={!design.feasible}
+              title="Copy As/A's required into the EC2 deflection inputs"
+            >
+              Apply to deflection
+            </button>
+          </div>
+        </Section>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="fcm" value={fmt(ec2.fcm, 2)} unit="MPa" />
         <Stat label="fctm" value={fmt(ec2.fctm, 2)} unit="MPa" />
